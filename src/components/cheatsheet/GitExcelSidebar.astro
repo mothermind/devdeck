@@ -1,0 +1,52 @@
+---
+// Sidebar navigation for Git, But Make It Excel page
+---
+  <!-- Mobile toggle -->
+  <button class="mobile-toggle" id="mobileToggle" onclick="toggleMobile()">&#9776;</button>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobile()"></div>
+
+  <!-- ═══════════ SIDEBAR ═══════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        Git, But Make It Excel
+        <small>Every command, one analogy</small>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-link active" href="#getting-started" onclick="closeMobile()">
+        <span class="nav-dot"></span> Getting started
+      </a>
+      <a class="nav-link" href="#saving-work" onclick="closeMobile()">
+        <span class="nav-dot"></span> Saving your work
+      </a>
+      <a class="nav-link" href="#checking" onclick="closeMobile()">
+        <span class="nav-dot"></span> What's going on?
+      </a>
+      <a class="nav-link" href="#branches" onclick="closeMobile()">
+        <span class="nav-dot"></span> Branches
+      </a>
+      <a class="nav-link" href="#syncing" onclick="closeMobile()">
+        <span class="nav-dot"></span> Syncing with your team
+      </a>
+      <a class="nav-link" href="#combining" onclick="closeMobile()">
+        <span class="nav-dot"></span> Combining work
+      </a>
+      <a class="nav-link" href="#conflicts" onclick="closeMobile()">
+        <span class="nav-dot"></span> Merge conflicts
+      </a>
+      <a class="nav-link" href="#messed-up" onclick="closeMobile()">
+        <span class="nav-dot"></span> I messed up
+      </a>
+      <div class="nav-divider"></div>
+      <a class="nav-link secondary" href="#all-commands" onclick="closeMobile()">
+        <span class="nav-dot"></span> All commands
+      </a>
+      <a class="nav-link secondary" href="#key-concepts" onclick="closeMobile()">
+        <span class="nav-dot"></span> Key concepts
+      </a>
+      <a class="nav-link secondary" href="#stories" onclick="closeMobile()">
+        <span class="nav-dot"></span> Real stories
+      </a>
+    </nav>
+  </aside>

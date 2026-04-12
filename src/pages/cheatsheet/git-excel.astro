@@ -1,0 +1,883 @@
+---
+// Standalone page — no layout wrapper
+import GitExcelStyles from '../../components/cheatsheet/GitExcelStyles.astro';
+import GitExcelSidebar from '../../components/cheatsheet/GitExcelSidebar.astro';
+import GitExcelScripts from '../../components/cheatsheet/GitExcelScripts.astro';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git, But Make It Excel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fredoka:wght@400;500;600;700&family=Fragment+Mono&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <GitExcelStyles />
+</head>
+<body>
+
+  <!-- Mobile toggle -->
+  <button class="mobile-toggle" id="mobileToggle" onclick="toggleMobile()">&#9776;</button>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobile()"></div>
+
+  <GitExcelSidebar />
+
+  <!-- ═══════════ MAIN ═══════════ -->
+  <div class="main">
+    <!-- Panic bar -->
+    <div class="panic-bar">
+      <div class="panic-input-wrap">
+        <span class="panic-icon">&#128269;</span>
+        <input class="panic-input" id="panicInput" type="text" placeholder='What happened? Try "undo", "push", "merge"...' autocomplete="off">
+        <button class="panic-clear" id="panicClear" onclick="clearPanic()">&times;</button>
+        <div class="panic-results" id="panicResults"></div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ────────── GETTING STARTED ────────── -->
+      <section id="getting-started">
+        <h2>Getting started</h2>
+        <p class="section-intro">You need a repo before you can do anything. Think of it like creating or opening a workbook.</p>
+
+        <div class="cmd-card" data-cmd="git init" data-search="git init create new repository blank workbook">
+          <div class="cmd-card-header">
+            <span class="cmd-name">git init</span>
+            <span class="cmd-desc">Create a new repository</span>
+          </div>
+          <div class="cmd-analogy">
+            <span class="cmd-analogy-label">Excel</span>
+            Opening Excel and getting that fresh, empty spreadsheet. Nothing in it yet. Pure potential.
+          </div>
+        </div>
+
+        <!-- Animation: New Workbook (hidden) -->
+
+        <div class="cmd-card" data-cmd="git clone" data-search="git clone download copy repo shared workbook onedrive">
+          <div class="cmd-card-header">
+            <span class="cmd-name">git clone</span>
+            <span class="cmd-desc">Download a copy of someone's repo</span>
+          </div>
+          <div class="cmd-analogy">
+            <span class="cmd-analogy-label">Excel</span>
+            Grabbing a copy of your coworker's spreadsheet from the shared drive. Now you've got your own version to mess with.
+          </div>
+        </div>
+
+        <!-- Animation: git clone -->
+        <div class="anim-container">
+          <div class="anim-stage anim-clone" id="anim-clone">
+            <div class="clone-mon">
+              <div class="clone-mon-bezel">
+                <div class="clone-screen">
+
+                  <!-- Layer 1: Web view (on top, fades out) -->
+                  <div class="clone-web" id="cloneWeb">
+                    <div class="clone-web-bar">
+                      <div class="clone-web-dots">
+                        <div class="clone-web-dot r"></div>
+                        <div class="clone-web-dot y"></div>
+                        <div class="clone-web-dot g"></div>
+                      </div>
+                      <div class="clone-web-url">
+                        <span class="clone-web-lock">&#9679;</span>
+                        onedrive.com/shared/karen/Sales_Q3.xlsx
+                      </div>
+                    </div>
+                    <div class="clone-web-body">
+                      <div class="clone-web-hdr">
+                        <div class="clone-web-ficon">X</div>
+                        <div class="clone-web-fname">Sales_Q3.xlsx</div>
+                      </div>
+                      <div class="clone-web-meta">Shared by Karen &middot; Last edited 2 hours ago &middot; 24 KB</div>
+                      <div class="clone-dl-btn" id="cloneDlBtn">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download a copy
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Layer 2: Desktop view (behind, revealed) -->
+                  <div class="clone-desk">
+                    <div class="clone-desk-menubar">
+                      <div class="clone-desk-menu-l">
+                        <span>&#63743;</span><span>Finder</span><span>File</span><span>Edit</span><span>View</span>
+                      </div>
+                      <div class="clone-desk-menu-r">Thu 3:42 PM</div>
+                    </div>
+                    <div class="clone-desk-area">
+                      <!-- Folder -->
+                      <div class="clone-dfolder">
+                        <div class="clone-dfolder-icon">
+                          <div class="clone-dfolder-tab"></div>
+                          <div class="clone-dfolder-body"></div>
+                        </div>
+                        <div class="clone-dfolder-name">my-project</div>
+                      </div>
+
+                      <!-- File (lands here) -->
+                      <div class="clone-dfile" id="cloneDFile">
+                        <div class="clone-dfile-icon">
+                          <span>X</span>
+                          <small>.xlsx</small>
+                        </div>
+                        <div class="clone-dfile-name">Sales_Q3.xlsx</div>
+                      </div>
+
+                      <!-- Right-side icons -->
+                      <div class="clone-dicons">
+                        <div class="clone-dicon">
+                          <div class="clone-dicon-img" style="background:#3b82f6">&#128190;</div>
+                          <div class="clone-dicon-name">Macintosh HD</div>
+                        </div>
+                      </div>
+
+                      <!-- Dock -->
+                      <div class="clone-ddock">
+                        <div class="clone-ddock-item" style="background:#3b82f6">&#128269;</div>
+                        <div class="clone-ddock-item" style="background:#e8e8e8">&#128196;</div>
+                        <div class="clone-ddock-item" style="background:#217346;color:#fff;font-size:9px;font-weight:700">X</div>
+                        <div class="clone-ddock-item" style="background:#555">&#9881;</div>
+                        <div class="clone-ddock-item" style="background:#1a1a1a">&#9654;</div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+              <div class="clone-mon-stand"></div>
+              <div class="clone-mon-base"></div>
+              <div class="clone-label" id="cloneLabel">Your copy — edit freely</div>
+            </div>
+          </div>
+          <button class="replay-btn" onclick="runCloneAnim()">&#8635;</button>
+        </div>
+
+      </section>
+
+      <!-- ────────── SAVING YOUR WORK ────────── -->
+      <section id="saving-work">
+        <h2>Saving your work</h2>
+        <p class="section-intro">Git saves in two steps: first you pick what to include (<code>add</code>), then you save it (<code>commit</code>). It's like highlighting cells before hitting Save.</p>
+
+        <div class="cmd-card" data-cmd="git add filename.txt" data-search="git add filename select changes stage highlight cells specific file">
+          <div class="cmd-card-header">
+            <span class="cmd-name">git add filename.txt</span>
+            <span class="cmd-desc">Select which changes to include in the next save</span>
+          </div>
+          <div class="cmd-analogy">
+            <span class="cmd-analogy-label">Excel</span>
+            You edited a bunch of cells, but you're going "I only want to save these ones right now." Click, click, click &mdash; just the ones you pick.
+          </div>
+        </div>
+
+        <!-- Animation: git add (selective) -->
+        <div class="anim-container">
+          <div class="anim-stage anim-add" id="anim-add">
+            <div class="add-wb">
+              <div class="wb-titlebar">
+                <div class="wb-dots"><div class="wb-dot r" style="opacity:1;animation:none"></div><div class="wb-dot y" style="opacity:1;animation:none"></div><div class="wb-dot g" style="opacity:1;animation:none"></div></div>
+                <div class="wb-title" style="opacity:1;animation:none">Budget_Q3.xlsx — Excel</div>
+              </div>
+              <div class="wb-ribbon">
+                <span style="opacity:1;animation:none">File</span><span style="opacity:1;animation:none">Home</span><span style="opacity:1;animation:none">Insert</span><span style="opacity:1;animation:none">Page Layout</span><span style="opacity:1;animation:none">Formulas</span>
+              </div>
+              <div class="wb-formula" style="opacity:1;animation:none"><span>A1</span><span style="color:#999;font-style:italic">fx</span></div>
+              <div class="wb-grid-area" style="opacity:1;animation:none">
+                <div class="wb-rowh">
+                  <div style="height:18px"></div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+                </div>
+                <div class="wb-grid-inner">
+                  <div class="wb-colh"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>
+                  <div class="wb-cells" id="addCells">
+                    <div class="wb-row"><div class="wb-cell has-data">Region</div><div class="wb-cell has-data">Q1</div><div class="wb-cell has-data">Q2</div><div class="wb-cell has-data edited" id="ac-d1">Q3</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">North</div><div class="wb-cell has-data">1200</div><div class="wb-cell has-data">1450</div><div class="wb-cell has-data edited" id="ac-d2">1580</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">South</div><div class="wb-cell has-data">980</div><div class="wb-cell has-data edited" id="ac-c3">1320</div><div class="wb-cell has-data edited" id="ac-d3">1100</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">East</div><div class="wb-cell has-data">870</div><div class="wb-cell has-data">920</div><div class="wb-cell has-data edited" id="ac-d4">1050</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">West</div><div class="wb-cell has-data edited" id="ac-b5">760</div><div class="wb-cell has-data">810</div><div class="wb-cell has-data edited" id="ac-d5">940</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="wb-tabs" style="opacity:1;animation:none"><div class="wb-tab">Sheet1</div></div>
+              <div class="wb-status"><span style="opacity:1;animation:none">6 cells modified</span></div>
+            </div>
+            <svg class="add-mouse" id="addMouse" viewBox="0 0 16 20"><path d="M1 1L1 15L5 11L9 18L11 17L7 10L13 10Z" fill="white" stroke="#333" stroke-width="1.2"/></svg>
+          </div>
+          <div class="anim-legend">
+            <div class="leg-item"><div class="leg-dot untouched"></div> Unchanged</div>
+            <div class="leg-item"><div class="leg-dot edited"></div> Edited (unstaged)</div>
+            <div class="leg-item"><div class="leg-dot staged"></div> Staged (git add)</div>
+          </div>
+          <button class="replay-btn" onclick="runAddAnim()">&#8635;</button>
+        </div>
+
+        <div class="cmd-card" data-cmd="git add ." data-search="git add . all changes select all save everything">
+          <div class="cmd-card-header">
+            <span class="cmd-name">git add .</span>
+            <span class="cmd-desc">Select all changes</span>
+          </div>
+          <div class="cmd-analogy">
+            <span class="cmd-analogy-label">Excel</span>
+            Ctrl+A, done. Just grab everything you touched and throw it all in the save. No picking and choosing.
+          </div>
+        </div>
+
+        <!-- Animation: git add . (select all) -->
+        <div class="anim-container">
+          <div class="anim-stage anim-add" id="anim-add-all">
+            <div class="add-wb">
+              <div class="wb-titlebar">
+                <div class="wb-dots"><div class="wb-dot r" style="opacity:1;animation:none"></div><div class="wb-dot y" style="opacity:1;animation:none"></div><div class="wb-dot g" style="opacity:1;animation:none"></div></div>
+                <div class="wb-title" style="opacity:1;animation:none">Budget_Q3.xlsx — Excel</div>
+              </div>
+              <div class="wb-ribbon">
+                <span style="opacity:1;animation:none">File</span><span style="opacity:1;animation:none">Home</span><span style="opacity:1;animation:none">Insert</span><span style="opacity:1;animation:none">Page Layout</span><span style="opacity:1;animation:none">Formulas</span>
+              </div>
+              <div class="wb-formula" style="opacity:1;animation:none"><span>A1</span><span style="color:#999;font-style:italic">fx</span></div>
+              <div class="wb-grid-area" style="opacity:1;animation:none">
+                <div class="wb-rowh">
+                  <div style="height:18px"></div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+                </div>
+                <div class="wb-grid-inner">
+                  <div class="wb-colh"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>
+                  <div class="wb-cells" id="addAllCells">
+                    <div class="wb-row"><div class="wb-cell has-data">Region</div><div class="wb-cell has-data">Q1</div><div class="wb-cell has-data">Q2</div><div class="wb-cell has-data edited" id="aa-d1">Q3</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">North</div><div class="wb-cell has-data">1200</div><div class="wb-cell has-data">1450</div><div class="wb-cell has-data edited" id="aa-d2">1580</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">South</div><div class="wb-cell has-data">980</div><div class="wb-cell has-data edited" id="aa-c3">1320</div><div class="wb-cell has-data edited" id="aa-d3">1100</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">East</div><div class="wb-cell has-data">870</div><div class="wb-cell has-data">920</div><div class="wb-cell has-data edited" id="aa-d4">1050</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">West</div><div class="wb-cell has-data edited" id="aa-b5">760</div><div class="wb-cell has-data">810</div><div class="wb-cell has-data edited" id="aa-d5">940</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="wb-tabs" style="opacity:1;animation:none"><div class="wb-tab">Sheet1</div></div>
+              <div class="wb-status"><span style="opacity:1;animation:none" id="aa-status">6 cells modified</span></div>
+            </div>
+          </div>
+          <div class="anim-legend">
+            <div class="leg-item"><div class="leg-dot untouched"></div> Unchanged</div>
+            <div class="leg-item"><div class="leg-dot edited"></div> Edited (unstaged)</div>
+            <div class="leg-item"><div class="leg-dot staged"></div> Staged (git add .)</div>
+          </div>
+          <button class="replay-btn" onclick="runAddAllAnim()">&#8635;</button>
+        </div>
+
+        <div class="cmd-card" data-cmd="git commit" data-search="git commit save snapshot note version save as">
+          <div class="cmd-card-header">
+            <span class="cmd-name">git commit</span>
+            <span class="cmd-desc">Save a snapshot with a note</span>
+          </div>
+          <div class="cmd-analogy">
+            <span class="cmd-analogy-label">Excel</span>
+            Hit Save As and scribble "Q3 numbers done" in the comment box. Now it's in your version history forever.
+          </div>
+        </div>
+
+        <div class="cmd-card" data-cmd='git commit -m "message"' data-search="git commit -m message one-line description save as comment box">
+          <div class="cmd-card-header">
+            <span class="cmd-name">git commit -m "message"</span>
+            <span class="cmd-desc">Save with a one-line description</span>
+          </div>
+          <div class="cmd-analogy">
+            <span class="cmd-analogy-label">Excel</span>
+            That little comment box in Save As? Yeah, that. One line, keep it short, move on.
+          </div>
+        </div>
+
+        <!-- Animation: git commit -m -->
+        <div class="anim-container">
+          <div class="anim-stage anim-commit" id="anim-commit">
+            <div class="commit-wb">
+              <div class="wb-titlebar">
+                <div class="wb-dots"><div class="wb-dot r" style="opacity:1;animation:none"></div><div class="wb-dot y" style="opacity:1;animation:none"></div><div class="wb-dot g" style="opacity:1;animation:none"></div></div>
+                <div class="wb-title" style="opacity:1;animation:none">Budget_Q3.xlsx — Excel</div>
+              </div>
+              <div class="wb-ribbon">
+                <span style="opacity:1;animation:none" class="file-hl" id="commitFileMenu">File</span><span style="opacity:1;animation:none">Home</span><span style="opacity:1;animation:none">Insert</span><span style="opacity:1;animation:none">Page Layout</span><span style="opacity:1;animation:none">Formulas</span>
+              </div>
+              <div class="wb-formula" style="opacity:1;animation:none"><span>A1</span><span style="color:#999;font-style:italic">fx</span></div>
+              <div class="wb-grid-area" style="opacity:1;animation:none">
+                <div class="wb-rowh">
+                  <div style="height:18px"></div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+                </div>
+                <div class="wb-grid-inner">
+                  <div class="wb-colh"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>
+                  <div class="wb-cells">
+                    <div class="wb-row"><div class="wb-cell has-data">Region</div><div class="wb-cell has-data">Q1</div><div class="wb-cell has-data">Q2</div><div class="wb-cell has-data staged">Q3</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">North</div><div class="wb-cell has-data">1200</div><div class="wb-cell has-data">1450</div><div class="wb-cell has-data staged">1580</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">South</div><div class="wb-cell has-data">980</div><div class="wb-cell has-data staged">1320</div><div class="wb-cell has-data staged">1100</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">East</div><div class="wb-cell has-data">870</div><div class="wb-cell has-data">920</div><div class="wb-cell has-data staged">1050</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">West</div><div class="wb-cell has-data staged">760</div><div class="wb-cell has-data">810</div><div class="wb-cell has-data staged">940</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="wb-tabs" style="opacity:1;animation:none"><div class="wb-tab">Sheet1</div></div>
+              <div class="wb-status" id="commitStatus"><span style="opacity:1;animation:none">6 cells staged &#10003;</span></div>
+            </div>
+
+            <!-- Dim overlay (outside wb so not clipped) -->
+            <div class="commit-dim" id="commitDim"></div>
+
+            <!-- Save As modal centered on spreadsheet -->
+            <div class="commit-modal" id="commitModal">
+              <div class="commit-modal-bar">
+                <div class="commit-modal-dots"><div class="commit-modal-dot r"></div><div class="commit-modal-dot y"></div><div class="commit-modal-dot g"></div></div>
+                <div class="commit-modal-title">Save As</div>
+              </div>
+              <div class="commit-modal-body">
+                <div class="commit-modal-label">Save As:</div>
+                <div class="commit-modal-input" id="commitInput">
+                  <span class="commit-typing-text" id="commitTyping"></span><span class="commit-typing-cursor" id="commitCursor"></span>
+                </div>
+                <div class="commit-modal-where">Where: <span>~/my-project/</span></div>
+                <div class="commit-modal-actions">
+                  <div class="commit-btn-cancel">Cancel</div>
+                  <div class="commit-btn-save" id="commitSaveBtn">Save</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: version files -->
+            <div class="commit-files">
+              <div class="commit-file" id="commitOrigFile">
+                <div class="commit-file-icon"><span>X</span><small>.xlsx</small></div>
+                <div class="commit-file-info">
+                  <div class="commit-file-name">Budget_Q3.xlsx</div>
+                  <div class="commit-file-meta">Original &middot; v1</div>
+                </div>
+              </div>
+              <div class="commit-file new-file" id="commitNewFile">
+                <div class="commit-file-icon"><span>X</span><small>.xlsx</small></div>
+                <div class="commit-file-info">
+                  <div class="commit-file-name" id="commitNewName"></div>
+                  <div class="commit-file-meta">&#10003; Just saved &middot; v2</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="replay-btn" onclick="runCommitAnim()">&#8635;</button>
+        </div>
+
+      </section>
+
+      <!-- ────────── CHECKING WHAT'S GOING ON ────────── -->
+      <section id="checking">
+        <h2>What's going on?</h2>
+        <p class="section-intro">Before you do anything, check the current state. These are your "look before you leap" commands.</p>
+
+        <div class="cmd-card" data-cmd="git status" data-search="git status changed staged unsaved asterisk">
+          <div class="cmd-card-header"><span class="cmd-name">git status</span><span class="cmd-desc">See what's changed and what's staged</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> That little asterisk in the title bar nagging you: "hey, you've got unsaved changes." Same vibe.</div>
+        </div>
+
+        <!-- Animation: git status -->
+        <div class="anim-container">
+          <div class="anim-stage anim-status" id="anim-status">
+            <div class="status-wb">
+              <div class="wb-titlebar">
+                <div class="wb-dots"><div class="wb-dot r" style="opacity:1;animation:none"></div><div class="wb-dot y" style="opacity:1;animation:none"></div><div class="wb-dot g" style="opacity:1;animation:none"></div></div>
+                <div class="wb-title" style="opacity:1;animation:none">Budget_Q3.xlsx — Excel</div>
+              </div>
+              <div class="wb-ribbon">
+                <span style="opacity:1;animation:none">File</span><span style="opacity:1;animation:none">Home</span><span style="opacity:1;animation:none">Insert</span><span style="opacity:1;animation:none">Page Layout</span><span style="opacity:1;animation:none">Formulas</span>
+              </div>
+              <div class="wb-formula" style="opacity:1;animation:none"><span>A1</span><span style="color:#999;font-style:italic">fx</span></div>
+              <div class="wb-grid-area" style="opacity:1;animation:none">
+                <div class="wb-rowh">
+                  <div style="height:18px"></div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div>
+                </div>
+                <div class="wb-grid-inner">
+                  <div class="wb-colh"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>
+                  <div class="wb-cells">
+                    <div class="wb-row"><div class="wb-cell has-data">Product</div><div class="wb-cell has-data">Q1</div><div class="wb-cell has-data">Q2</div><div class="wb-cell has-data">Q3</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">Widget A</div><div class="wb-cell has-data staged" id="sc-b2">1450</div><div class="wb-cell has-data modified" id="sc-c2">1680</div><div class="wb-cell has-data modified" id="sc-d2">1920</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">Widget B</div><div class="wb-cell has-data">1100</div><div class="wb-cell has-data modified" id="sc-c3">1250</div><div class="wb-cell has-data modified" id="sc-d3">1380</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row" id="statusRow4"><div class="wb-cell has-data untracked">Gadget Z</div><div class="wb-cell has-data untracked">500</div><div class="wb-cell has-data untracked">620</div><div class="wb-cell untracked"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">Total</div><div class="wb-cell has-data">=SUM(B2:B4)</div><div class="wb-cell has-data">=SUM(C2:C4)</div><div class="wb-cell has-data staged" id="sc-d5">=SUM(D2:D4)</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="wb-tabs" style="opacity:1;animation:none"><div class="wb-tab">experiment</div></div>
+              <div class="wb-status"><span style="opacity:1;animation:none">Ready</span></div>
+            </div>
+
+            <!-- Legend (right side, revealed one by one) -->
+            <div class="status-legend">
+              <div class="status-legend-item" id="legendStaged"><span class="status-swatch staged-sw"></span>Marked for next save</div>
+              <div class="status-legend-item" id="legendModified"><span class="status-swatch modified-sw"></span>Edited but not saved</div>
+              <div class="status-legend-item" id="legendUntracked"><span class="status-swatch untracked-sw"></span>Brand new &mdash; never been saved</div>
+              <div class="status-legend-item" id="legendClean"><span class="status-swatch clean-sw"></span>Saved</div>
+            </div>
+          </div>
+          <button class="replay-btn" onclick="runStatusAnim()">&#8635;</button>
+        </div>
+
+        <div class="cmd-card" data-cmd="git diff" data-search="git diff changed line by line track changes red green highlights">
+          <div class="cmd-card-header"><span class="cmd-name">git diff</span><span class="cmd-desc">See exactly what changed, line by line</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Turn on Track Changes and watch the red and green highlights go wild. Red = gone, green = new.</div>
+        </div>
+
+        <!-- Animation: git diff -->
+        <div class="anim-container">
+          <div class="anim-stage anim-diff" id="anim-diff">
+            <div class="diff-wb">
+              <div class="wb-titlebar">
+                <div class="wb-dots"><div class="wb-dot r" style="opacity:1;animation:none"></div><div class="wb-dot y" style="opacity:1;animation:none"></div><div class="wb-dot g" style="opacity:1;animation:none"></div></div>
+                <div class="wb-title" style="opacity:1;animation:none">Budget_Q3.xlsx — Track Changes</div>
+              </div>
+              <div class="wb-ribbon">
+                <span style="opacity:1;animation:none">File</span><span style="opacity:1;animation:none">Home</span><span style="opacity:1;animation:none">Insert</span><span style="opacity:1;animation:none">Page Layout</span><span style="opacity:1;animation:none">Formulas</span>
+              </div>
+              <div class="wb-formula" style="opacity:1;animation:none"><span>A1</span><span style="color:#999;font-style:italic">fx</span></div>
+              <div class="wb-grid-area" style="opacity:1;animation:none">
+                <div class="wb-rowh">
+                  <div style="height:18px"></div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div>
+                </div>
+                <div class="wb-grid-inner">
+                  <div class="wb-colh"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>
+                  <div class="wb-cells">
+                    <div class="wb-row"><div class="wb-cell has-data">Product</div><div class="wb-cell has-data">Q1</div><div class="wb-cell has-data">Q2</div><div class="wb-cell has-data">Q3</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">Widget A</div><div class="wb-cell has-data diff-changed" id="dc-b2"><span class="diff-old">1200</span><span class="diff-arrow">&rarr;</span><span class="diff-new">1450</span></div><div class="wb-cell has-data diff-changed" id="dc-c2"><span class="diff-old">1400</span><span class="diff-arrow">&rarr;</span><span class="diff-new">1680</span></div><div class="wb-cell has-data">1920</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">Widget B</div><div class="wb-cell has-data">1100</div><div class="wb-cell has-data diff-changed" id="dc-c3"><span class="diff-old">1050</span><span class="diff-arrow">&rarr;</span><span class="diff-new">1250</span></div><div class="wb-cell has-data">1380</div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row diff-added-row" id="diffRow4"><div class="wb-cell has-data diff-added">Gadget Z</div><div class="wb-cell has-data diff-added">500</div><div class="wb-cell has-data diff-added">620</div><div class="wb-cell diff-added"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">Total</div><div class="wb-cell has-data">=SUM(B2:B4)</div><div class="wb-cell has-data">=SUM(C2:C4)</div><div class="wb-cell has-data diff-changed" id="dc-d5"><span class="diff-old">=SUM(D2:D3)</span><span class="diff-arrow">&rarr;</span><span class="diff-new">=SUM(D2:D4)</span></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="wb-tabs" style="opacity:1;animation:none"><div class="wb-tab">experiment</div></div>
+              <div class="wb-status"><span style="opacity:1;animation:none">Track Changes: ON</span></div>
+            </div>
+
+            <!-- Legend (right side) -->
+            <div class="diff-legend">
+              <div class="diff-legend-item" id="legendChanged"><span class="status-swatch modified-sw"></span>Changed value</div>
+              <div class="diff-legend-item" id="legendAdded"><span class="status-swatch staged-sw"></span>New row added</div>
+            </div>
+          </div>
+          <button class="replay-btn" onclick="runDiffAnim()">&#8635;</button>
+        </div>
+
+        <div class="cmd-card" data-cmd="git log" data-search="git log full save history version history">
+          <div class="cmd-card-header"><span class="cmd-name">git log</span><span class="cmd-desc">See the full save history</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> File &rarr; Version History. Scroll through every save ever made &mdash; when, and what was written.</div>
+        </div>
+
+        <!-- Animation: git log -->
+        <div class="anim-container">
+          <div class="anim-stage anim-log" id="anim-log">
+            <div class="log-finder">
+              <div class="log-titlebar">
+                <div class="log-dots"><div class="wb-dot r" style="opacity:1;animation:none"></div><div class="wb-dot y" style="opacity:1;animation:none"></div><div class="wb-dot g" style="opacity:1;animation:none"></div></div>
+                <div class="log-title">my-project</div>
+              </div>
+              <div class="log-toolbar">
+                <span class="log-breadcrumb">~/Documents/my-project</span>
+                <span class="log-count" id="logCount">6 items</span>
+              </div>
+              <div class="log-colheader">
+                <span class="log-col-name">Name</span>
+                <span class="log-col-date">Date Modified</span>
+                <span class="log-col-size">Size</span>
+              </div>
+              <div class="log-list">
+                <div class="log-row" id="logRow1">
+                  <div class="log-file-icon"><span>X</span></div>
+                  <span class="log-fname">Budget_Q3_final_FINAL.xlsx</span>
+                  <span class="log-fdate">Today, 4:32 PM</span>
+                  <span class="log-fsize">42 KB</span>
+                </div>
+                <div class="log-row" id="logRow2">
+                  <div class="log-file-icon"><span>X</span></div>
+                  <span class="log-fname">Budget_Q3_added_gadget_z.xlsx</span>
+                  <span class="log-fdate">Today, 3:15 PM</span>
+                  <span class="log-fsize">38 KB</span>
+                </div>
+                <div class="log-row" id="logRow3">
+                  <div class="log-file-icon"><span>X</span></div>
+                  <span class="log-fname">Budget_Q3_updated_totals.xlsx</span>
+                  <span class="log-fdate">Today, 2:01 PM</span>
+                  <span class="log-fsize">35 KB</span>
+                </div>
+                <div class="log-row" id="logRow4">
+                  <div class="log-file-icon"><span>X</span></div>
+                  <span class="log-fname">Budget_Q3_fixed_south.xlsx</span>
+                  <span class="log-fdate">Yesterday, 5:48 PM</span>
+                  <span class="log-fsize">34 KB</span>
+                </div>
+                <div class="log-row" id="logRow5">
+                  <div class="log-file-icon"><span>X</span></div>
+                  <span class="log-fname">Budget_Q3_draft.xlsx</span>
+                  <span class="log-fdate">Yesterday, 11:20 AM</span>
+                  <span class="log-fsize">28 KB</span>
+                </div>
+                <div class="log-row" id="logRow6">
+                  <div class="log-file-icon"><span>X</span></div>
+                  <span class="log-fname">Budget_Q3.xlsx</span>
+                  <span class="log-fdate">Mar 18, 9:05 AM</span>
+                  <span class="log-fsize">24 KB</span>
+                </div>
+              </div>
+              <div class="log-statusbar"><span id="logStatus">6 items, 201 KB available</span></div>
+            </div>
+          </div>
+          <button class="replay-btn" onclick="runLogAnim()">&#8635;</button>
+        </div>
+      </section>
+
+      <!-- ────────── BRANCHES ────────── -->
+      <section id="branches">
+        <h2>Branches</h2>
+        <p class="section-intro">Branches are copies of your work you can experiment on without breaking the original. Like duplicating a sheet tab.</p>
+
+        <div class="cmd-card" data-cmd="git branch" data-search="git branch list all branches sheet tabs">
+          <div class="cmd-card-header"><span class="cmd-name">git branch</span><span class="cmd-desc">List all branches</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Glance down at your sheet tabs at the bottom. That row of tabs? That's what you're looking at.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git branch new-name" data-search="git branch new-name create branch stay duplicate tab">
+          <div class="cmd-card-header"><span class="cmd-name">git branch new-name</span><span class="cmd-desc">Create a new branch (but stay where you are)</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Right-click a tab, hit Duplicate, then&hellip; just leave it sitting there. You'll get to it later.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git checkout -b new-name" data-search="git checkout -b new-name create branch switch duplicate tab click">
+          <div class="cmd-card-header"><span class="cmd-name">git checkout -b new-name</span><span class="cmd-desc">Create a new branch and switch to it</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Duplicate a tab and immediately start working in the copy. You're already there.</div>
+        </div>
+
+        <!-- Animation: Duplicate Tab -->
+        <div class="anim-container">
+          <div class="anim-stage anim-tab" id="anim2">
+            <div class="tab-wb">
+              <div class="wb-titlebar">
+                <div class="wb-dots"><div class="wb-dot r" style="opacity:1;animation:none"></div><div class="wb-dot y" style="opacity:1;animation:none"></div><div class="wb-dot g" style="opacity:1;animation:none"></div></div>
+                <div class="wb-title" style="opacity:1;animation:none">Book1 — Excel</div>
+              </div>
+              <div class="wb-ribbon">
+                <span style="opacity:1;animation:none">File</span><span style="opacity:1;animation:none">Home</span><span style="opacity:1;animation:none">Insert</span><span style="opacity:1;animation:none">Page Layout</span><span style="opacity:1;animation:none">Formulas</span>
+              </div>
+              <div class="wb-formula" style="opacity:1;animation:none"><span>A1</span><span style="color:#999;font-style:italic">fx</span></div>
+              <div class="wb-grid-area" style="opacity:1;animation:none">
+                <div class="wb-rowh">
+                  <div style="height:18px"></div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+                </div>
+                <div class="wb-grid-inner">
+                  <div class="wb-colh"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>
+                  <div class="wb-cells">
+                    <div class="wb-row"><div class="wb-cell has-data">Sales</div><div class="wb-cell has-data">Q1</div><div class="wb-cell has-data">Q2</div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">North</div><div class="wb-cell has-data">1200</div><div class="wb-cell has-data">1450</div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell has-data">South</div><div class="wb-cell has-data">980</div><div class="wb-cell has-data">1100</div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                    <div class="wb-row"><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div><div class="wb-cell"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="tab-tabs-area" id="tabsArea">
+                <div class="tab-tab is-active" id="tabSheet1">Sheet1</div>
+                <div class="tab-tab is-new" id="tabCopy">Sheet1 (2)</div>
+                <div class="tab-ctx" id="tabCtx">
+                  <div class="tab-ctx-item">Insert...</div>
+                  <div class="tab-ctx-item">Delete</div>
+                  <div class="tab-ctx-item">Rename</div>
+                  <div class="tab-ctx-div"></div>
+                  <div class="tab-ctx-item" id="tabCtxDup">Move or Copy...</div>
+                  <div class="tab-ctx-div"></div>
+                  <div class="tab-ctx-item">Tab Color</div>
+                </div>
+              </div>
+              <div class="wb-status"><span style="opacity:1;animation:none">Ready</span></div>
+            </div>
+            <svg class="tab-mouse" id="tabMouse" viewBox="0 0 16 20"><path d="M1 1L1 15L5 11L9 18L11 17L7 10L13 10Z" fill="white" stroke="#333" stroke-width="1.2"/></svg>
+          </div>
+          <button class="replay-btn" onclick="runTabAnim()">&#8635;</button>
+        </div>
+
+        <div class="cmd-card" data-cmd="git switch branch-name" data-search="git switch branch-name existing branch clicking different sheet tab">
+          <div class="cmd-card-header"><span class="cmd-name">git switch branch-name</span><span class="cmd-desc">Switch to an existing branch</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Just click a different tab at the bottom. That's literally it.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git branch -d branch-name" data-search="git branch -d delete branch deleting sheet tab">
+          <div class="cmd-card-header"><span class="cmd-name">git branch -d branch-name</span><span class="cmd-desc">Delete a branch</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Right-click a tab, delete. Gone. Hope you didn't need that.</div>
+        </div>
+      </section>
+
+      <!-- ────────── SYNCING ────────── -->
+      <section id="syncing">
+        <h2>Syncing with your team</h2>
+        <p class="section-intro">Your repo lives on your machine. "Remote" is the shared copy on GitHub. These commands move work between the two.</p>
+
+        <div class="cmd-card" data-cmd="git pull" data-search="git pull download latest merge refresh shared workbook">
+          <div class="cmd-card-header"><span class="cmd-name">git pull</span><span class="cmd-desc">Download latest changes and merge them in</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Hit Refresh on the shared workbook to grab whatever everyone else has been doing while you were gone.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git push" data-search="git push upload saves remote shared drive">
+          <div class="cmd-card-header"><span class="cmd-name">git push</span><span class="cmd-desc">Upload your saves to the remote</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Save your stuff back to the shared drive so the rest of the team can actually see what you did.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git fetch" data-search="git fetch check new versions exist without downloading">
+          <div class="cmd-card-header"><span class="cmd-name">git fetch</span><span class="cmd-desc">Check if new versions exist, but don't download yet</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Peeking at the shared drive like "anyone save anything new?" without actually opening it.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git pull origin main" data-search="git pull origin main latest main current branch master sheet working tab">
+          <div class="cmd-card-header"><span class="cmd-name">git pull origin main</span><span class="cmd-desc">Bring the latest main into your current branch</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Grab whatever's new on the master sheet and paste it into yours. Stay up to date.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="Pull Request (PR)" data-search="pull request PR review changes merging email boss review master copy">
+          <div class="cmd-card-header"><span class="cmd-name">Pull Request (PR)</span><span class="cmd-desc">Ask others to review your changes before merging</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Sending your boss an email: "Hey, I tweaked some stuff &mdash; mind taking a look before I put it in the main sheet?"</div>
+        </div>
+      </section>
+
+      <!-- ────────── COMBINING WORK ────────── -->
+      <section id="combining">
+        <h2>Combining work</h2>
+        <p class="section-intro">When you're done working on a branch, you bring it back together with the main line. Here's how.</p>
+
+        <div class="cmd-card" data-cmd="git merge main" data-search="git merge main branch changes copy paste different cells same cell pick">
+          <div class="cmd-card-header"><span class="cmd-name">git merge main</span><span class="cmd-desc">Bring another branch's changes into yours</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Copy from the main sheet into yours. Changed different cells? Great, both kept. Same cell? Excel goes "uh, which one do you want?"</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git rebase main" data-search="git rebase main replay changes latest rewrite version history">
+          <div class="cmd-card-header"><span class="cmd-name">git rebase main</span><span class="cmd-desc">Replay your changes on top of the latest main</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Sneakily rewrite your version history so it looks like you started from the latest copy all along. Nobody needs to know.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git cherry-pick abc123" data-search="git cherry-pick abc123 copy one specific commit edit another sheet tab">
+          <div class="cmd-card-header"><span class="cmd-name">git cherry-pick abc123</span><span class="cmd-desc">Copy one specific commit from another branch</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Reach into another tab and grab just that one specific edit. Leave everything else alone.</div>
+        </div>
+      </section>
+
+      <!-- ────────── MERGE CONFLICTS ────────── -->
+      <section id="conflicts">
+        <h2>Merge conflicts</h2>
+        <p class="section-intro">When two people change the same thing, Git can't decide which version to keep. It asks you.</p>
+
+        <div class="cmd-card" data-cmd="Merge conflict" data-search="merge conflict both sides changed same lines cell highlights which value">
+          <div class="cmd-card-header"><span class="cmd-name">Merge conflict</span><span class="cmd-desc">Both sides changed the same lines</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> You and Karen both edited cell B7. Excel throws its hands up: "I can't pick &mdash; you two figure it out."</div>
+        </div>
+
+        <div class="callout">
+          Don't panic. A conflict isn't an error — it's Git asking for your opinion. Open the file, pick the version you want, save, then <code>git add</code> + <code>git commit</code>.
+        </div>
+      </section>
+
+      <!-- ────────── I MESSED UP ────────── -->
+      <section id="messed-up">
+        <h2>I messed up</h2>
+        <p class="section-intro">Everyone does. Git has several levels of "undo" — from gentle to nuclear.</p>
+
+        <div class="cmd-card" data-cmd="git stash" data-search="git stash temporarily set aside uncommitted changes cut clipboard switch tabs">
+          <div class="cmd-card-header"><span class="cmd-name">git stash</span><span class="cmd-desc">Temporarily set aside uncommitted changes</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Ctrl+X your half-done work, go deal with something else, then Ctrl+V it back when you're ready.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git stash pop" data-search="git stash pop bring back stashed changes paste clipboard">
+          <div class="cmd-card-header"><span class="cmd-name">git stash pop</span><span class="cmd-desc">Bring back stashed changes</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Ctrl+V. Your stuff's back right where you left it.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git reset --soft HEAD~1" data-search="git reset soft HEAD undo last commit keep changes files undo save as keep edits cells">
+          <div class="cmd-card-header"><span class="cmd-name">git reset --soft HEAD~1</span><span class="cmd-desc">Undo the last commit, but keep the changes in your files</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Undo the last Save As, but your edits are still sitting right there in the cells. No harm done.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git reset --hard HEAD~1" data-search="git reset hard HEAD undo last commit revert all files undo save ctrl z previous version">
+          <div class="cmd-card-header"><span class="cmd-name">git reset --hard HEAD~1</span><span class="cmd-desc">Undo the last commit AND revert all files</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Nuke it. Undo the save AND Ctrl+Z everything back to before. Your edits? Gone. Like it never happened.</div>
+        </div>
+
+        <div class="callout">
+          <code>--soft</code> is safe. <code>--hard</code> is destructive. If you're not sure, always use <code>--soft</code> first.
+        </div>
+
+        <div class="cmd-card" data-cmd="git revert abc123" data-search="git revert abc123 new commit undoes previous deleting version history new save manually reverses">
+          <div class="cmd-card-header"><span class="cmd-name">git revert abc123</span><span class="cmd-desc">Create a new commit that undoes a previous one</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> Don't delete history &mdash; that's shady. Instead, make a new save that carefully undoes the damage. Everyone can see what happened.</div>
+        </div>
+
+        <div class="cmd-card" data-cmd="git merge --abort" data-search="git merge abort cancel merge in progress nevermind undo paste go back">
+          <div class="cmd-card-header"><span class="cmd-name">git merge --abort</span><span class="cmd-desc">Cancel a merge that's in progress</span></div>
+          <div class="cmd-analogy"><span class="cmd-analogy-label">Excel</span> "Nope nope nope, undo everything, go back to before I tried to paste. Pretend this never happened."</div>
+        </div>
+      </section>
+
+      <!-- ────────── ALL COMMANDS ────────── -->
+      <section id="all-commands">
+        <h2>All commands</h2>
+        <p class="section-intro">The full cheatsheet in one table. Ctrl+F friendly.</p>
+
+        <table class="cheatsheet-table">
+          <thead>
+            <tr><th>Command</th><th>What it does</th><th>Excel analogy</th></tr>
+          </thead>
+          <tbody>
+            <tr class="table-group-header"><td colspan="3">Getting Started</td></tr>
+            <tr><td>git init</td><td>Create a new repository</td><td>Fresh empty spreadsheet. Pure potential.</td></tr>
+            <tr><td>git clone</td><td>Download a copy of someone's repo</td><td>Grab your coworker's file from the shared drive</td></tr>
+            <tr class="table-group-header"><td colspan="3">Saving Your Work</td></tr>
+            <tr><td>git add filename.txt</td><td>Select which changes to include in the next save</td><td>"I only want to save these cells right now"</td></tr>
+            <tr><td>git add .</td><td>Select all changes</td><td>Ctrl+A, grab everything, throw it in the save</td></tr>
+            <tr><td>git commit</td><td>Save a snapshot with a note</td><td>Save As + scribble a note about what you did</td></tr>
+            <tr><td>git commit -m "msg"</td><td>Save with a one-line description</td><td>That little comment box in Save As</td></tr>
+            <tr class="table-group-header"><td colspan="3">Checking What's Going On</td></tr>
+            <tr><td>git status</td><td>See what's changed and what's staged</td><td>That asterisk nagging you about unsaved changes</td></tr>
+            <tr><td>git log</td><td>See the full save history</td><td>File &rarr; Version History, scroll through everything</td></tr>
+            <tr><td>git diff</td><td>See exactly what changed, line by line</td><td>Track Changes &mdash; red gone, green new</td></tr>
+            <tr class="table-group-header"><td colspan="3">Branches</td></tr>
+            <tr><td>git branch</td><td>List all branches</td><td>Glance at your sheet tabs at the bottom</td></tr>
+            <tr><td>git branch new-name</td><td>Create a new branch (stay where you are)</td><td>Right-click, Duplicate, leave it sitting there</td></tr>
+            <tr><td>git checkout -b new-name</td><td>Create a new branch and switch to it</td><td>Duplicate a tab and start working in the copy</td></tr>
+            <tr><td>git switch branch-name</td><td>Switch to an existing branch</td><td>Click a different tab. That's it.</td></tr>
+            <tr><td>git branch -d name</td><td>Delete a branch</td><td>Right-click, delete. Gone.</td></tr>
+            <tr class="table-group-header"><td colspan="3">Combining Work</td></tr>
+            <tr><td>git merge main</td><td>Bring another branch's changes into yours</td><td>Copy &amp; paste from main. Same cell? "Which one?"</td></tr>
+            <tr><td>git rebase main</td><td>Replay changes on top of latest main</td><td>Sneakily rewrite history. Nobody needs to know.</td></tr>
+            <tr><td>git cherry-pick abc123</td><td>Copy one specific commit</td><td>Grab just that one edit from another tab</td></tr>
+            <tr><td>Merge conflict</td><td>Both sides changed the same lines</td><td>You and Karen both edited B7. "Figure it out."</td></tr>
+            <tr class="table-group-header"><td colspan="3">Syncing with Others</td></tr>
+            <tr><td>git pull</td><td>Download latest changes and merge</td><td>Hit Refresh, grab what everyone else did</td></tr>
+            <tr><td>git push</td><td>Upload your saves to the remote</td><td>Save it back so the team can see your work</td></tr>
+            <tr><td>git fetch</td><td>Check for new versions without downloading</td><td>"Anyone save anything new?" (without opening it)</td></tr>
+            <tr><td>git pull origin main</td><td>Bring latest main into current branch</td><td>Grab what's new on the master sheet, paste into yours</td></tr>
+            <tr><td>Pull Request (PR)</td><td>Ask others to review before merging</td><td>"Hey boss, mind checking this before I merge?"</td></tr>
+            <tr class="table-group-header"><td colspan="3">Undo &amp; Recovery</td></tr>
+            <tr><td>git stash</td><td>Set aside uncommitted changes</td><td>Ctrl+X your half-done work for later</td></tr>
+            <tr><td>git stash pop</td><td>Bring back stashed changes</td><td>Ctrl+V. It's back.</td></tr>
+            <tr><td>git reset --soft HEAD~1</td><td>Undo last commit, keep changes</td><td>Undo the save, but your edits are still there</td></tr>
+            <tr><td>git reset --hard HEAD~1</td><td>Undo last commit AND revert files</td><td>Nuke it. Undo save + Ctrl+Z everything.</td></tr>
+            <tr><td>git revert abc123</td><td>New commit that undoes a previous one</td><td>Make a new save that undoes the damage. Transparently.</td></tr>
+            <tr><td>git merge --abort</td><td>Cancel a merge in progress</td><td>"Nope, undo everything, pretend this never happened"</td></tr>
+            <tr class="table-group-header"><td colspan="3">Handy Extras</td></tr>
+            <tr><td>git tag v1.0</td><td>Bookmark a specific version</td><td>Name it "FINAL_v2_APPROVED_USE_THIS_ONE.xlsx"</td></tr>
+            <tr><td>.gitignore</td><td>Tell Git to ignore certain files</td><td>"Hey Excel, don't track my scratch sheets, okay?"</td></tr>
+            <tr><td>git log --oneline</td><td>Compact version history</td><td>Version history but just the subject lines</td></tr>
+            <tr><td>git remote -v</td><td>See which remote you're connected to</td><td>Checking which OneDrive folder this thing syncs to</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ────────── KEY CONCEPTS ────────── -->
+      <section id="key-concepts">
+        <h2>Key concepts</h2>
+        <p class="section-intro">These aren't commands, but they trip everyone up. Understanding them makes everything else click.</p>
+
+        <div class="concept-grid">
+          <div class="concept-card">
+            <div class="concept-term">Working directory</div>
+            <div class="concept-meaning">The files on your machine right now</div>
+            <div class="concept-excel">The cells you're staring at and typing into right now. This is your desk.</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-term">Staging area</div>
+            <div class="concept-meaning">Changes you've selected with <code>git add</code> but haven't committed</div>
+            <div class="concept-excel">You've highlighted cells but haven't hit save yet. They're in limbo.</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-term">Committed</div>
+            <div class="concept-meaning">Saved in Git's history &mdash; safe and recoverable</div>
+            <div class="concept-excel">It's in version history. You can always get it back. Breathe.</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-term">Uncommitted</div>
+            <div class="concept-meaning">Only exists on your machine right now &mdash; fragile</div>
+            <div class="concept-excel">Unsaved edits. Close the window and they vanish into the void.</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-term">HEAD</div>
+            <div class="concept-meaning">The commit you're currently looking at</div>
+            <div class="concept-excel">Whichever version you currently have open. That's HEAD.</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-term">Origin</div>
+            <div class="concept-meaning">The default name for your remote server (usually GitHub)</div>
+            <div class="concept-excel">The OneDrive folder where the shared copy lives. That's your origin.</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-term">main / master</div>
+            <div class="concept-meaning">The primary branch</div>
+            <div class="concept-excel">The original Sheet1 &mdash; the one everyone treats as the source of truth. Don't mess with it directly.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────── REAL STORIES ────────── -->
+      <section id="stories">
+        <h2>Real stories</h2>
+        <p class="section-intro">Step-by-step walkthroughs of everyday situations. Pick the one that matches what you're trying to do.</p>
+
+        <div class="story-card">
+          <h4>"I just joined the team and need to start working"</h4>
+          <div class="story-step"><span class="story-num">1</span><span class="story-text"><code>git clone https://github.com/team/project</code> — download the project</span></div>
+          <div class="story-step"><span class="story-num">2</span><span class="story-text"><code>git checkout -b my-feature</code> — create your own branch to work on</span></div>
+          <div class="story-step"><span class="story-num">3</span><span class="story-text">Make your changes (edit files like normal)</span></div>
+          <div class="story-step"><span class="story-num">4</span><span class="story-text"><code>git add .</code> then <code>git commit -m "Add login page"</code> — save your work</span></div>
+          <div class="story-step"><span class="story-num">5</span><span class="story-text"><code>git push -u origin my-feature</code> — upload it so your team can see</span></div>
+          <div class="story-excel">Grab the shared workbook, duplicate a tab so you don't wreck the original, make your edits, save, upload. Day one, done.</div>
+        </div>
+
+        <div class="story-card">
+          <h4>"I was working on something but need to switch tasks urgently"</h4>
+          <div class="story-step"><span class="story-num">1</span><span class="story-text"><code>git stash</code> — set aside your half-done work</span></div>
+          <div class="story-step"><span class="story-num">2</span><span class="story-text"><code>git switch main</code> — go back to main</span></div>
+          <div class="story-step"><span class="story-num">3</span><span class="story-text">Do the urgent fix, commit, push</span></div>
+          <div class="story-step"><span class="story-num">4</span><span class="story-text"><code>git switch my-feature</code> — go back to your branch</span></div>
+          <div class="story-step"><span class="story-num">5</span><span class="story-text"><code>git stash pop</code> — bring back your half-done work</span></div>
+          <div class="story-excel">Ctrl+X your half-done work, switch tabs, put out the fire, switch back, Ctrl+V. Crisis handled, nothing lost.</div>
+        </div>
+
+        <div class="story-card">
+          <h4>"I committed something I shouldn't have"</h4>
+          <div class="story-step"><span class="story-num">1</span><span class="story-text">If you haven't pushed yet: <code>git reset --soft HEAD~1</code> — undo the commit, keep your files</span></div>
+          <div class="story-step"><span class="story-num">2</span><span class="story-text">Fix what was wrong, then <code>git add .</code> + <code>git commit -m "Fixed version"</code></span></div>
+          <div class="story-step"><span class="story-num">3</span><span class="story-text">If you already pushed: <code>git revert abc123</code> — create a new commit that undoes the bad one</span></div>
+          <div class="story-excel">Just saved? Undo the save, your edits are still there, fix and re-save. Already on the shared drive? Don't delete history &mdash; make a new save that undoes the damage.</div>
+        </div>
+      </section>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+
+  <GitExcelScripts />
+
+</body>
+</html>

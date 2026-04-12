@@ -1,0 +1,151 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+---
+
+<DocsLayout title="Ingredient Embeddings">
+  <PageHeader
+    title="Ingredient Embeddings"
+    tags={["KLUE-BERT", "Cosine Similarity", "FastAPI"]}
+  />
+
+  <details>
+    <summary>How it works</summary>
+    <div class="details-body">
+      <p><strong>Model:</strong> <code>klue/bert-base</code> — Korean language BERT model for generating ingredient embeddings.</p>
+
+      <strong>Embedding Flow</strong>
+      <ol>
+        <li>Query <code>product_analysis_&#123;version&#125;</code> for ingredient data (<code>question_id: CM00aa7ace476c60</code>)</li>
+        <li>Tokenize each ingredient list with KLUE-BERT tokenizer</li>
+        <li>Generate 768-dim embeddings via mean pooling of last hidden states</li>
+        <li>Normalize embeddings for cosine similarity search</li>
+      </ol>
+
+      <strong>Storage</strong>
+      <ul>
+        <li><strong>S3:</strong> <code>s3://trendmix/models/data/ingredient-search/ingredient_embeddings.json</code></li>
+        <li><strong>Local cache:</strong> <code>app/data/embeddings/ingredient_embeddings.json</code></li>
+      </ul>
+      <p>On startup the API loads embeddings from local cache; the <code>/ingredients/update</code> endpoint regenerates from DB and syncs to both S3 and local.</p>
+    </div>
+  </details>
+
+  <!-- ── Tabs ──────────────────────────────────────────────── -->
+  <div class="tabs">
+    <div class="tab-bar" role="tablist">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="update">update</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="search">search</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="ieconfig">config</button>
+    </div>
+
+    <!-- ── Update ──────────────────────────────────────────── -->
+    <div class="tab-panel active" id="tab-update" role="tabpanel">
+      <p class="caption">Trigger recomputation of ingredient embeddings</p>
+
+      <div class="seg-bar">
+        <button class="seg-btn active" data-seg="run" data-group="update">Run</button>
+        <button class="seg-btn" data-seg="status" data-group="update">Status</button>
+        <button class="seg-btn" data-seg="info" data-group="update">Info</button>
+      </div>
+      <hr />
+
+      <div class="seg-panel active" id="seg-update-run">
+        <strong>Trigger Update (API)</strong>
+        <pre><code>curl -X POST http://localhost:8000/ingredients/update</code></pre>
+        <strong>Trigger Update (Python)</strong>
+        <pre><code>import requests
+resp = requests.post("http://localhost:8000/ingredients/update")
+print(resp.json())</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-update-status">
+        <strong>Check Local Cache</strong>
+        <pre><code>ls -lh app/data/embeddings/ingredient_embeddings.json</code></pre>
+        <strong>Check S3</strong>
+        <pre><code>aws s3 ls s3://trendmix/models/data/ingredient-search/ingredient_embeddings.json</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-update-info">
+        <ol>
+          <li>Queries active <code>product_analysis</code> table for ingredient answers</li>
+          <li>Filters to <code>question_id = 'CM00aa7ace476c60'</code> (ingredients question)</li>
+          <li>Tokenizes and encodes each ingredient string with KLUE-BERT</li>
+          <li>Saves embeddings JSON to S3 and local cache</li>
+          <li>Reloads in-memory index for immediate use</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- ── Search ──────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-search" role="tabpanel">
+      <p class="caption">Ingredient similarity search via API</p>
+
+      <div class="seg-bar">
+        <button class="seg-btn active" data-seg="run" data-group="search">Run</button>
+        <button class="seg-btn" data-seg="config" data-group="search">Config</button>
+        <button class="seg-btn" data-seg="info" data-group="search">Info</button>
+      </div>
+      <hr />
+
+      <div class="seg-panel active" id="seg-search-run">
+        <strong>Search by Ingredient Name</strong>
+        <pre><code>curl "http://localhost:8000/ingredients/search?query=niacinamide&top_k=10"</code></pre>
+        <strong>Search (Python)</strong>
+        <pre><code>import requests
+resp = requests.get(
+    "http://localhost:8000/ingredients/search",
+    params=&#123;"query": "niacinamide", "top_k": 10&#125;,
+)
+for item in resp.json()["results"]:
+    print(f"&#123;item['score']:.3f&#125;  &#123;item['group_id']&#125;  &#123;item['ingredient']&#125;")</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-search-config">
+        <table>
+          <thead><tr><th>Parameter</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>query</td><td>required</td><td>Ingredient name or phrase to search</td></tr>
+            <tr><td>top_k</td><td>10</td><td>Number of similar results to return</td></tr>
+            <tr><td>threshold</td><td>0.7</td><td>Minimum cosine similarity score</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="seg-panel" id="seg-search-info">
+        <ol>
+          <li>Encodes the query string with the same KLUE-BERT model</li>
+          <li>Computes cosine similarity against all stored embeddings</li>
+          <li>Filters results below the similarity threshold</li>
+          <li>Returns top-k matches sorted by score</li>
+        </ol>
+        <p><strong>Response fields:</strong> <code>group_id</code>, <code>ingredient</code>, <code>score</code></p>
+      </div>
+    </div>
+
+    <!-- ── Config ──────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-ieconfig" role="tabpanel">
+      <p class="caption">Paths, model info, and threshold settings</p>
+
+      <strong>Model</strong>
+      <pre><code>klue/bert-base  (768-dim embeddings)</code></pre>
+
+      <strong>S3 Paths</strong>
+      <pre><code>Embeddings : s3://trendmix/models/data/ingredient-search/ingredient_embeddings.json</code></pre>
+
+      <strong>Local Paths</strong>
+      <pre><code>Cache      : app/data/embeddings/ingredient_embeddings.json
+Module     : app/services/filtering.py</code></pre>
+
+      <strong>Thresholds</strong>
+      <table>
+        <thead><tr><th>Setting</th><th>Value</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Default similarity threshold</td><td>0.7</td><td>Minimum cosine similarity for search results</td></tr>
+          <tr><td>Embedding dim</td><td>768</td><td>KLUE-BERT hidden size</td></tr>
+          <tr><td>Pooling</td><td>Mean</td><td>Mean pooling over last hidden states</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</DocsLayout>

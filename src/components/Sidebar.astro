@@ -1,0 +1,141 @@
+---
+const pathname = Astro.url.pathname;
+
+const nav = [
+  {
+    section: 'Home',
+    links: [
+      { href: '/', label: 'Dashboard' },
+    ],
+  },
+  {
+    section: 'Data Pipeline',
+    links: [
+      { href: '/project1/pipeline',                label: 'Pipeline' },
+      { href: '/project1/scrapers',                label: 'Scrapers' },
+      { href: '/project1/sentiment',               label: 'Sentiment Analysis' },
+      { href: '/project1/ingredient-embeddings',   label: 'Ingredient Embeddings' },
+      { href: '/project1/search-trend',            label: 'Search Trend' },
+      { href: '/project1/table-manager',           label: 'Table Manager' },
+    ],
+  },
+  {
+    section: 'Lab',
+    links: [
+      { href: '/project2/hypothesis-explorer', label: 'Hypothesis Explorer' },
+    ],
+  },
+  {
+    section: 'Cheatsheet',
+    links: [
+      { href: '/cheatsheet/git-excel', label: 'Git, But Make It Excel', external: true },
+    ],
+  },
+];
+
+function isActive(href: string) {
+  if (href === '/') return pathname === '/';
+  return pathname.startsWith(href);
+}
+---
+
+<aside class="sidebar">
+  <div class="sidebar-inner">
+    <nav>
+      {nav.map(({ section, links }) => (
+        <div class="nav-section">
+          <div class="section-label">{section}</div>
+          {links.map((link) => (
+            <a
+              href={link.href}
+              class:list={['nav-link', { active: isActive(link.href) }]}
+              {...(link.external ? { target: '_blank', rel: 'noopener' } : {})}
+            >
+              {link.label}
+              {link.external && <span class="external-icon">↗</span>}
+            </a>
+          ))}
+        </div>
+      ))}
+    </nav>
+
+  </div>
+</aside>
+
+<style>
+  .sidebar {
+    position: fixed;
+    top: var(--header-h);
+    left: 0;
+    width: var(--sidebar-w);
+    height: calc(100vh - var(--header-h));
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  .sidebar-inner {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 0.85rem 2.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .sidebar-inner::-webkit-scrollbar { width: 4px; }
+  .sidebar-inner::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Logo: hidden — identity lives in the header now ── */
+  .logo { display: none; }
+
+  /* ── Nav ── */
+  .nav-section { margin-bottom: 1.75rem; }
+
+  .section-label {
+    font-family: var(--font-heading);
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    padding: 0 0.6rem 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .nav-link {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    padding: 0.4rem 0.75rem;
+    border-radius: 10px;
+    letter-spacing: 0.01em;
+    transition: all 0.15s ease;
+    text-decoration: none;
+  }
+
+  .nav-link:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .nav-link.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .external-icon {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    margin-left: 0.15rem;
+  }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+  }
+</style>

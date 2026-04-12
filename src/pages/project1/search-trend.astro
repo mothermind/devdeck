@@ -1,0 +1,191 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+---
+
+<DocsLayout title="Search Trend Scraper">
+  <PageHeader
+    title="Search Trend Scraper"
+    tags={["Naver API", "PostgreSQL", "2-stage ETL"]}
+  />
+
+  <details>
+    <summary>First-Time Setup</summary>
+    <div class="details-body">
+      <strong>Clone & Install</strong>
+      <pre><code>git clone https://github.com/KBWW/search-trend-scraper-async.git
+cd search-trend-scraper-async
+uv sync</code></pre>
+      <strong>Configure Database (.env)</strong>
+      <pre><code>cat > .env &lt;&lt; 'EOF'
+DATABASE_URL=postgresql://user:pass@host:5432/database
+EOF</code></pre>
+      <strong>API Credentials</strong> (in <code>scraper.py</code>)
+      <ul>
+        <li>Naver Datalab API: <code>client_id</code>, <code>client_secret</code></li>
+        <li>Naver Keyword Tool API: <code>API_KEY</code>, <code>SECRET_KEY</code>, <code>CUSTOMER_ID</code></li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>Table Version Manager</summary>
+    <div class="details-body">
+      <strong>List all versions</strong>
+      <pre><code>uv run python -m utils.tbl_version_manager --list
+uv run python -m utils.tbl_version_manager -l -t product_search_trend</code></pre>
+      <strong>Activate specific version</strong>
+      <pre><code>uv run python -m utils.tbl_version_manager --activate product_search_trend 2</code></pre>
+      <strong>Cleanup old versions (keep N most recent)</strong>
+      <pre><code>uv run python -m utils.tbl_version_manager --cleanup product_raw 3</code></pre>
+    </div>
+  </details>
+
+  <!-- ── Tabs ──────────────────────────────────────────────── -->
+  <div class="tabs">
+    <div class="tab-bar" role="tablist">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="scraper">1. scraper</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="stmain">2. main</button>
+    </div>
+
+    <!-- ── 1. Scraper ──────────────────────────────────────── -->
+    <div class="tab-panel active" id="tab-scraper" role="tabpanel">
+      <p class="caption">Fetches brand search trends from Naver APIs</p>
+
+      <div class="seg-bar">
+        <button class="seg-btn active" data-seg="run" data-group="scraper">Run</button>
+        <button class="seg-btn" data-seg="status" data-group="scraper">Status</button>
+        <button class="seg-btn" data-seg="config" data-group="scraper">Config</button>
+        <button class="seg-btn" data-seg="info" data-group="scraper">Info</button>
+      </div>
+      <hr />
+
+      <div class="seg-panel active" id="seg-scraper-run">
+        <strong>Production Run</strong>
+        <pre><code>cd ~/search-trend-scraper-async && \
+uv run python scraper.py</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-scraper-status">
+        <strong>Check Output Files</strong>
+        <pre><code>ls -la data/$(date +%y%m%d)/</code></pre>
+        <strong>View Latest CSV</strong>
+        <pre><code>ls data/$(date +%y%m%d)/*_final.csv</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-scraper-config">
+        <strong>APIs Used</strong>
+        <table>
+          <thead><tr><th>API</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>Naver Datalab</td><td>Search trend ratios (0-100)</td></tr>
+            <tr><td>Naver Keyword Tool</td><td>Absolute search volume estimates</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Batch Processing:</strong> 5 brands per API call, saves every 100 brands</p>
+      </div>
+
+      <div class="seg-panel" id="seg-scraper-info">
+        <strong>What it does</strong>
+        <ol>
+          <li>Loads brand list from active <code>brand</code> table</li>
+          <li>For each batch of 5 brands:
+            <ul>
+              <li>Fetches search trends from Naver Datalab API</li>
+              <li>Fetches keyword volumes from Naver Keyword Tool API</li>
+              <li>Estimates absolute search counts</li>
+            </ul>
+          </li>
+          <li>Saves intermediate results every 100 brands</li>
+          <li>Outputs final CSV to <code>data/YYMMDD/</code></li>
+        </ol>
+        <strong>Output CSV Columns</strong>
+        <table>
+          <thead><tr><th>Column</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>period</td><td>Week start date</td></tr>
+            <tr><td>ratio</td><td>Relative search ratio (0-100)</td></tr>
+            <tr><td>title</td><td>Brand name</td></tr>
+            <tr><td>abs_count</td><td>Estimated absolute search count</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 2. Main ─────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-stmain" role="tabpanel">
+      <p class="caption">Processes scraped data into proportional search metrics</p>
+
+      <div class="seg-bar">
+        <button class="seg-btn active" data-seg="run" data-group="stmain">Run</button>
+        <button class="seg-btn" data-seg="status" data-group="stmain">Status</button>
+        <button class="seg-btn" data-seg="config" data-group="stmain">Config</button>
+        <button class="seg-btn" data-seg="info" data-group="stmain">Info</button>
+      </div>
+      <hr />
+
+      <div class="seg-panel active" id="seg-stmain-run">
+        <strong>Production Run</strong>
+        <pre><code>cd ~/search-trend-scraper-async && \
+uv run python main.py --target 260203</code></pre>
+        <strong>Short Flag</strong>
+        <pre><code>cd ~/search-trend-scraper-async && \
+uv run python main.py -t 260203</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-stmain-status">
+        <strong>Check New Table Version</strong>
+        <pre><code>uv run python -m utils.tbl_version_manager -l -t product_search_trend</code></pre>
+        <strong>Query Output Table (SQL)</strong>
+        <pre><code>SELECT group_id, period, search_trend
+FROM product_search_trend_002
+LIMIT 10;</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-stmain-config">
+        <table>
+          <thead><tr><th>Argument</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>--target, -t</td><td>Date folder to process (YYMMDD)</td></tr>
+          </tbody>
+        </table>
+        <strong>Input Tables (auto-detected active versions)</strong>
+        <table>
+          <thead><tr><th>Table</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>product_review</td><td>Weekly review counts per group</td></tr>
+            <tr><td>product_raw</td><td>Product-to-brand mappings</td></tr>
+            <tr><td>brand</td><td>Brand reference data</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="seg-panel" id="seg-stmain-info">
+        <strong>What it does</strong>
+        <ol>
+          <li>Loads <code>*_final.csv</code> from target directory</li>
+          <li>Gets active table versions for <code>product_review</code>, <code>product_raw</code>, <code>brand</code></li>
+          <li>For each brand:
+            <ul>
+              <li>Aligns dates to weekly periods (Monday-based)</li>
+              <li>Calculates review proportion per group per week</li>
+              <li>Merges with brand trend data</li>
+            </ul>
+          </li>
+          <li>Creates versioned output table (e.g., <code>product_search_trend_002</code>)</li>
+        </ol>
+        <strong>Formula</strong>
+        <pre><code>search_trend = abs_count × (group_reviews / total_brand_reviews)</code></pre>
+        <strong>Output Table Schema</strong>
+        <table>
+          <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>group_id</td><td>VARCHAR(50)</td><td>Product group identifier</td></tr>
+            <tr><td>period</td><td>TIMESTAMP</td><td>Week start date</td></tr>
+            <tr><td>search_trend</td><td>FLOAT</td><td>Proportional search count</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</DocsLayout>

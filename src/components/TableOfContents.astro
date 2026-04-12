@@ -1,0 +1,148 @@
+<aside class="toc-panel">
+  <div class="toc-heading">On this page</div>
+  <nav>
+    <ul class="toc-list"></ul>
+  </nav>
+</aside>
+
+<script>
+  const panel   = document.querySelector('.toc-panel') as HTMLElement | null;
+  const list    = document.querySelector('.toc-list')  as HTMLElement | null;
+  const heading = document.querySelector('.toc-heading') as HTMLElement | null;
+  const content = document.querySelector('.content') as HTMLElement | null;
+
+  if (panel && list && content) {
+    const headings = Array.from(
+      content.querySelectorAll('h2, h3, h4')
+    ) as HTMLElement[];
+
+    if (headings.length === 0) {
+      panel.style.display = 'none';
+    } else {
+      // Assign unique IDs
+      const usedIds = new Map<string, number>();
+      headings.forEach((h) => {
+        if (!h.id) {
+          const base = (h.textContent ?? '')
+            .toLowerCase()
+            .replace(/[^\w]+/g, '-')
+            .replace(/^-|-$/g, '');
+          const n = usedIds.get(base) ?? 0;
+          usedIds.set(base, n + 1);
+          h.id = n === 0 ? base : `${base}-${n}`;
+        }
+
+        const indent: Record<string, string> = { H2: '0', H3: '0.85rem', H4: '1.7rem' };
+
+        const li = document.createElement('li');
+        const a  = document.createElement('a');
+        const label = Array.from(h.childNodes)
+          .filter((n) => n.nodeType === Node.TEXT_NODE)
+          .map((n) => n.textContent ?? '')
+          .join('')
+          .trim();
+
+        a.href = `#${h.id}`;
+        a.textContent = label;
+        a.style.paddingLeft = indent[h.tagName] ?? '0';
+        if (h.tagName === 'H3' || h.tagName === 'H4') {
+          a.classList.add('toc-sub');
+        }
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+
+      // Active tracking
+      const allLinks = Array.from(list.querySelectorAll('a')) as HTMLAnchorElement[];
+      const setActive = () => {
+        let idx = 0;
+        const offset = 100;
+        for (let i = 0; i < headings.length; i++) {
+          if (headings[i].getBoundingClientRect().top <= offset) idx = i;
+        }
+        const activeHref = `#${headings[idx].id}`;
+        allLinks.forEach((a) => {
+          a.classList.toggle('active', a.getAttribute('href') === activeHref);
+        });
+      };
+      window.addEventListener('scroll', setActive, { passive: true });
+      setActive();
+    }
+  }
+</script>
+
+<style>
+  .toc-panel {
+    position: fixed;
+    top: calc(var(--header-h) + 2.5rem);
+    left: calc(var(--sidebar-w) + var(--content-max) + 2rem);
+    width: 200px;
+    max-height: calc(100vh - var(--header-h) - 5rem);
+    overflow-y: auto;
+    background: transparent;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .toc-panel::-webkit-scrollbar { width: 4px; }
+  .toc-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 1380px) {
+    .toc-panel { display: none; }
+  }
+
+  .toc-heading {
+    font-family: var(--font-sans);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.65rem;
+    padding-left: 0.75rem;
+  }
+
+  .toc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .toc-list li { margin: 0; }
+
+  .toc-list a {
+    display: block;
+    padding: 0.22rem 0.75rem;
+    font-family: var(--font-sans);
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.45;
+    text-decoration: none;
+    transition: color 0.12s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-left: 2px solid transparent;
+  }
+
+  .toc-list a.toc-sub {
+    font-size: 0.74rem;
+    font-weight: 400;
+  }
+
+  .toc-list a:hover {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+
+  .toc-list a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+
+  /* color overrides for dynamically-created links (Astro scoping bypass) */
+  :global(.toc-list a) { color: var(--text-dim); }
+  :global(.toc-list a:hover) { color: var(--text-muted); }
+  :global(.toc-list a.active) { color: var(--accent); }
+</style>

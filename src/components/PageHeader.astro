@@ -1,0 +1,63 @@
+---
+interface Props {
+  title: string;
+  tags?: string[];
+}
+const { title, tags = [] } = Astro.props;
+
+const pathname = Astro.url.pathname;
+let eyebrow = '';
+if (pathname.startsWith('/project1')) eyebrow = 'Data Pipeline';
+else if (pathname.startsWith('/project2')) eyebrow = 'Playground';
+---
+
+<div class="page-header">
+  {eyebrow && <div class="eyebrow">{eyebrow}</div>}
+  <h1>{title}</h1>
+  {tags.length > 0 && (
+    <div class="tags">
+      {tags.map(tag => <span class="tag">{tag}</span>)}
+    </div>
+  )}
+  <hr />
+</div>
+
+<style>
+  .page-header { margin-bottom: 2rem; }
+
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+
+  h1 { margin-bottom: 0.75rem; }
+
+  .tags {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+  }
+
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.18rem 0.7rem;
+    letter-spacing: 0.04em;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    opacity: 0.6;
+  }
+</style>

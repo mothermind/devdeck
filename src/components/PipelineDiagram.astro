@@ -1,0 +1,189 @@
+---
+// W=120, H=36, stride_x=140 (gap=20), stride_y=100
+// Cols: c0=20, c1=160, c2=300, c3=440, c4=580
+// Rows: r0=0,  r1=100, r2=200, r3=300, r4=390
+// Canvas: 740 × 440
+
+const COLORS: Record<string, string> = {
+  scraper: '#D4620A',
+  process: '#2d8a4e',
+  storage: '#b8860b',
+  api:     '#7c5cbf',
+};
+
+const nodes: Record<string, { x: number; y: number; type: string; label: string; sub: string }> = {
+  // Row 0 — data collection & preprocessing
+  OY:   { x: 20,  y: 0,   type: 'scraper', label: 'OY Scraper',          sub: 'oliveyoung' },
+  BK:   { x: 20,  y: 46,  type: 'scraper', label: 'BK Scraper',          sub: 'bkurly' },
+  DDB1: { x: 160, y: 23,  type: 'storage', label: 'DynamoDB + S3',       sub: 'metadata' },
+  S1:   { x: 300, y: 0,   type: 'process', label: 'Step 1',              sub: 'load data' },
+  S2:   { x: 440, y: 0,   type: 'process', label: 'Step 2',              sub: 'preprocess' },
+  PG1:  { x: 580, y: 0,   type: 'storage', label: 'product_raw',         sub: 'postgres' },
+  // Row 1 — review pipeline
+  REV:  { x: 20,  y: 100, type: 'scraper', label: 'Reviews',             sub: 'scraper' },
+  S3R:  { x: 160, y: 100, type: 'storage', label: 'S3: reviews',         sub: 'parquet' },
+  SENT: { x: 300, y: 100, type: 'process', label: 'Sentiment',           sub: 'ko-sroberta' },
+  PG2:  { x: 440, y: 100, type: 'storage', label: 'product_review',      sub: 'postgres' },
+  TREND:{ x: 580, y: 100, type: 'scraper', label: 'Trends',              sub: 'naver api' },
+  // Row 2 — OCR + AI analysis
+  S3:   { x: 20,  y: 200, type: 'process', label: 'Step 3: OCR',         sub: 'extraction' },
+  DDB2: { x: 160, y: 200, type: 'storage', label: 'ItemKeywords',        sub: 'dynamodb' },
+  S4:   { x: 300, y: 200, type: 'process', label: 'Step 4',              sub: 'prepare data' },
+  S5:   { x: 440, y: 200, type: 'process', label: 'Step 5: AI',          sub: 'gpt-4o mini' },
+  S6:   { x: 580, y: 200, type: 'process', label: 'Step 6',              sub: 'process results' },
+  // Row 3 — feature engineering + search trend store
+  PG4:  { x: 20,  y: 300, type: 'storage', label: 'product_analysis',    sub: 'postgres' },
+  S7:   { x: 160, y: 300, type: 'process', label: 'Step 7',              sub: 'feature eng.' },
+  PG5:  { x: 300, y: 300, type: 'storage', label: 'product_service',     sub: 'postgres (final)' },
+  PG3:  { x: 580, y: 300, type: 'storage', label: 'product_search_trend',sub: 'postgres' },
+  // Row 4 — embeddings + API
+  INGR: { x: 160, y: 390, type: 'scraper', label: 'Embeddings',          sub: 'klue-bert' },
+  API:  { x: 300, y: 390, type: 'api',     label: 'API',                 sub: 'fastapi' },
+};
+
+// Edge paths — all coordinates verified against node positions above.
+//
+// Routing conventions:
+//   • In-row forward edges:  straight L segment (gap = 20px)
+//   • Row-wrap arcs:         exit bottom of last node → rainbow arc → enter top of first node next row
+//   • Cross-row DDB1→S3:     left routing lane at x=2 (outside leftmost nodes which start at x=20)
+//   • Cross-row PG1→S4:      right routing lane at x=714
+//   • TREND→PG3 outer arc:   right routing lane at x=722 (drops 2 rows, same column)
+//   • PG4→INGR:              S-curve down-right from row 3 to row 4
+const edges: string[] = [
+  // ── Row 0 ─────────────────────────────────────────────
+  `M 140 18 C 152 18, 160 32, 160 41`,        // OY   → DDB1
+  `M 140 64 C 152 64, 160 52, 160 41`,        // BK   → DDB1
+  `M 280 41 C 292 41, 300 27, 300 18`,        // DDB1 → S1
+  `M 420 18 L 440 18`,                         // S1   → S2
+  `M 560 18 L 580 18`,                         // S2   → PG1
+
+  // ── Row 0→1 wrap ──────────────────────────────────────
+  // PG1 → REV: exit PG1 bottom, rainbow arc through y=68, enter REV top
+  `M 640 36 C 640 68, 80 68, 80 100`,
+
+  // ── Row 1 ─────────────────────────────────────────────
+  `M 140 118 L 160 118`,                       // REV  → S3R
+  `M 280 118 L 300 118`,                       // S3R  → SENT
+  `M 420 118 L 440 118`,                       // SENT → PG2
+  `M 560 118 L 580 118`,                       // PG2  → TREND
+
+  // ── TREND → PG3: outer-right arc, same column, rows 1→3 ──
+  `M 700 118 C 722 118, 722 318, 700 318`,
+
+  // ── DDB1 → S3: left routing lane (x=2), cross-row ────
+  // Exit DDB1 bottom, sweep left to x=2 above row-1 nodes,
+  // drop below row-1 nodes, curve right into S3 top.
+  `M 220 59 C 220 80, 2 80, 2 180 C 2 198, 80 198, 80 200`,
+
+  // ── PG1 → S4: right routing lane (x=714), cross-row ──
+  // Exit PG1 bottom-right, drop along right margin, enter S4 top.
+  `M 660 36 C 680 36, 714 80, 714 168 C 714 200, 360 200, 360 200`,
+
+  // ── Row 2 ─────────────────────────────────────────────
+  `M 140 218 L 160 218`,                       // S3   → DDB2
+  `M 280 218 L 300 218`,                       // DDB2 → S4
+  `M 420 218 L 440 218`,                       // S4   → S5
+  `M 560 218 L 580 218`,                       // S5   → S6
+
+  // ── Row 2→3 wrap ──────────────────────────────────────
+  // S6 → PG4: exit S6 bottom, rainbow arc through y=268, enter PG4 top
+  `M 640 236 C 640 268, 80 268, 80 300`,
+
+  // ── Row 3 ─────────────────────────────────────────────
+  `M 140 318 L 160 318`,                       // PG4  → S7
+  `M 280 318 L 300 318`,                       // S7   → PG5
+
+  // ── PG4 → INGR: S-curve down-right, rows 3→4 ─────────
+  `M 80 336 C 80 363, 220 363, 220 390`,
+
+  // ── Row 4 ─────────────────────────────────────────────
+  `M 280 408 L 300 408`,                       // INGR → API
+];
+---
+
+<div class="pipeline-canvas">
+  <svg
+    width="740"
+    height="440"
+    style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible;"
+    aria-hidden="true"
+  >
+    <defs>
+      <marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+        <path d="M 0 1 L 6 3.5 L 0 6 z" fill="#999" />
+      </marker>
+    </defs>
+    {edges.map(d => (
+      <path d={d} stroke="#C4BBB0" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+    ))}
+  </svg>
+
+  {Object.entries(nodes).map(([id, n]) => {
+    const color = COLORS[n.type];
+    return (
+      <div class="pd-node" style={`left:${n.x}px;top:${n.y}px;`} title={id}>
+        <div class="pd-strip" style={`background:${color};`}></div>
+        <div class="pd-body">
+          <span class="pd-label">{n.label}</span>
+          <span class="pd-sub">{n.sub}</span>
+        </div>
+      </div>
+    );
+  })}
+</div>
+
+<style>
+  .pipeline-canvas {
+    position: relative;
+    width: 740px;
+    height: 440px;
+  }
+
+  .pd-node {
+    position: absolute;
+    width: 120px;
+    height: 36px;
+    display: flex;
+    align-items: stretch;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+  }
+
+  .pd-strip {
+    width: 8px;
+    flex-shrink: 0;
+  }
+
+  .pd-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 7px;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  .pd-label {
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+
+  .pd-sub {
+    font-family: var(--font-sans);
+    font-size: 9px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+</style>

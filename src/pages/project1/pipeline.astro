@@ -1,0 +1,663 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+
+const GROUP_LABEL: Record<string, string> = {
+  OY: 'Data Collection',  BK: 'Data Collection',
+  S1: 'Core Processing',  S2: 'Core Processing',
+  REV: 'Review & Trends', SENT: 'Review & Trends', TREND: 'Review & Trends',
+  S3N: 'OCR & AI Analysis', S4: 'OCR & AI Analysis', S5: 'OCR & AI Analysis',
+  S6: 'OCR & AI Analysis',  S7: 'OCR & AI Analysis',
+  INGR: 'Embeddings',
+};
+
+const stages = [
+  {
+    id: "OY",
+    name: "OY Scraper",
+    project: "oliveyoung-scraper-async",
+    github: "https://github.com/KBWW/oliveyoung-scraper-async",
+    description: "The primary entry point for the pipeline. Crawls Olive Young's K-Beauty catalog to extract product metadata, pricing, and images at scale.",
+    features: [
+      "Crawls category trees across Olive Young's full K-Beauty product listing",
+      "Extracts metadata: name, brand, price, size, ingredients, ratings, review count",
+      "Downloads and uploads product images directly to S3",
+      "Runs 2 parallel workers with a 2s inter-request delay to avoid bot detection",
+    ],
+    source: "Olive Young website (categories)",
+    destination: [
+      { label: "DynamoDB", value: "OliveYoung_MetaData", note: "PK: itemId / SK: category2" },
+      { label: "S3", value: "images/olive_young/" },
+    ],
+    tech: ["Python", "Playwright", "AsyncIO", "boto3"],
+    notes: "parallel(2) + delay(2s) — site uses fingerprint-based bot detection; headless Chromium with randomized viewport helps bypass it.",
+    schema: { itemId: "String", itemName: "String", brandId: "String", brandName: "String", category1: "String", category2: "String", originalPrice: "Number", salePrice: "Number", size: "String", ingredients: "String", ratings: "Number", reviews: "Number" },
+    guide: "/project1/scrapers",
+    guideLabel: "Scrapers → OY Products",
+  },
+  {
+    id: "BK",
+    name: "BK Scraper",
+    project: "bkurly-scraper-async",
+    github: "https://github.com/KBWW/bkurly-scraper-async",
+    description: "Mirrors the OY scraper pattern but targets Beauty Kurly, which uses a different category structure and requires higher concurrency.",
+    features: [
+      "Crawls Beauty Kurly category trees with a 5-worker async pool",
+      "Extracts metadata: name, brand, category, price, ingredients, reviews",
+      "Downloads and uploads product images to S3",
+      "3s delay between requests — Beauty Kurly enforces stricter rate limits than OY",
+    ],
+    source: "Beauty Kurly website (categories)",
+    destination: [
+      { label: "DynamoDB", value: "BK_MetaData", note: "PK: itemId" },
+      { label: "S3", value: "images/beauty_kurly/" },
+    ],
+    tech: ["Python", "Playwright", "AsyncIO", "boto3"],
+    notes: "parallel(5) + delay(3s) — higher parallelism is safe due to session-scoped cookies isolating requests.",
+    schema: { itemId: "String", brandName: "String", categoryId: "String", ingredients: "String", itemName: "String", originalPrice: "Number", reviews: "Number", salePrice: "Number", size: "String" },
+    guide: "/project1/scrapers",
+    guideLabel: "Scrapers → BK Products",
+  },
+  {
+    id: "S1",
+    name: "Step 1: Data Loading",
+    project: "product-db-pipeline",
+    description: "Reads raw scraped records from both DynamoDB tables and normalizes them into a unified in-memory DataFrame for downstream processing.",
+    features: [
+      "Scans OliveYoung_MetaData and BK_MetaData in full via DynamoDB pagination",
+      "Normalizes source-specific field names into a single unified schema",
+      "Casts numeric strings (price, ratings) to proper types",
+      "Outputs a combined in-memory DataFrame for the next step",
+    ],
+    source: "DynamoDB: OliveYoung_MetaData, BK_MetaData",
+    destination: [{ label: "Output", value: "In-memory DataFrame" }],
+    tech: ["Python", "boto3", "pandas"],
+  },
+  {
+    id: "S2",
+    name: "Step 2: Preprocessing & Grouping",
+    project: "product-db-pipeline",
+    description: "Cleans and deduplicates records, groups similar products across both sources, and identifies a single representative product per group.",
+    features: [
+      "Cleans ingredient strings, trims whitespace, drops malformed records",
+      "Groups similar products by name/ingredient similarity across OY and BK",
+      "Selects a representative product per group based on review count",
+      "Writes the cleaned, versioned dataset to PostgreSQL",
+    ],
+    source: "In-memory DataFrame from Step 1",
+    destination: [{ label: "PostgreSQL", value: "product_raw_{version}" }],
+    tech: ["Python", "pandas", "psycopg2"],
+  },
+  {
+    id: "REV",
+    name: "Review Scraper",
+    project: "review-scrapper-async",
+    github: "https://github.com/cch0213/review-scrapper-async",
+    description: "Fetches paginated customer reviews for every product in the product_raw table, writing results in batches to Parquet files on S3.",
+    features: [
+      "Reads product list from PostgreSQL product_raw table",
+      "Scrapes paginated reviews per product using Playwright",
+      "Serializes results in batches of 500 to Parquet via PyArrow",
+      "Writes a _manifest.json per run tracking batch counts and run ID",
+    ],
+    source: "PostgreSQL: product_raw_{version}",
+    destination: [
+      { label: "S3", value: "data/reviews/raw/{run_id}/" },
+      { label: "Format", value: "_manifest.json + scraper_results_{batch}_{run_id}.parquet" },
+    ],
+    tech: ["Python", "Playwright", "PyArrow"],
+    guide: "/project1/scrapers",
+    guideLabel: "Scrapers → Reviews",
+  },
+  {
+    id: "SENT",
+    name: "Sentiment Analysis",
+    project: "skincare-analysis",
+    github: "https://github.com/KBWW/skincare-analysis",
+    description: "A 4-step GPU pipeline that preprocesses Korean review text, runs transformer inference for sentiment and aspect scoring, merges results, and uploads to PostgreSQL.",
+    features: [
+      "Preprocesses Korean text with KoNLPy (Okt tokenizer) — tokenization, stopword removal",
+      "Runs batch inference (512 samples) on a RunPod A5000 GPU using jhgan/ko-sroberta-multitask",
+      "Scores sentiment (positive/negative/neutral) and 4 aspect dimensions per review",
+      "Extracts keyword categories: effects, texture, satisfaction, skin condition, product, economy",
+    ],
+    source: "S3: data/reviews/raw/{date}/*.parquet",
+    destination: [
+      { label: "S3 (preprocessed)", value: "preprocessed_data_{date}/" },
+      { label: "S3 (processed)", value: "processed_results_{date}/" },
+      { label: "S3 (merged)", value: "merged_results_{date}/" },
+      { label: "PostgreSQL", value: "product_review_{version}" },
+    ],
+    tech: ["Python", "KoNLPy (Okt)", "PyTorch", "Transformers"],
+    notes: "GPU: RunPod A5000 · Model: jhgan/ko-sroberta-multitask · batch_size: 512 · chunk_size: 10k reviews. Intermediate S3 writes act as checkpoints — each step is re-runnable independently.",
+    schema: { keywords: "keywords_effects, keywords_texture, keywords_satisfaction, keywords_skin_condition, keywords_product, keywords_economy", sentiment: "SA_positive, SA_negative, SA_neutral", aspects: "aspect_{moisture,effectiveness,texture,absorption}_{pos,neg,neu}", satisfaction: "satisfaction_very, satisfaction_somewhat, satisfaction_un" },
+    guide: "/project1/sentiment",
+    guideLabel: "Sentiment Analysis",
+  },
+  {
+    id: "TREND",
+    name: "Search Trend Scraper",
+    project: "search-trend-scraper-async",
+    github: "https://github.com/KBWW/search-trend-scraper-async",
+    description: "A 2-stage ETL that pulls absolute search volume from Naver APIs and normalizes it into a per-product trend score relative to brand-level review volume.",
+    features: [
+      "Calls Naver Datalab API for absolute monthly search counts per brand/product keyword",
+      "Calls Naver Keyword Tool API for relative search index",
+      "Normalizes raw counts: search_trend = abs_count × (group_reviews / total_brand_reviews)",
+      "Joins trend data with product_raw and product_review tables for the final versioned table",
+    ],
+    source: "Naver Datalab API, Naver Keyword Tool API + PostgreSQL: brand, product_raw, product_review",
+    destination: [
+      { label: "CSV", value: "data/YYMMDD/naver_trends_data_*_final.csv" },
+      { label: "PostgreSQL", value: "product_search_trend_{version}" },
+    ],
+    tech: ["Python", "requests", "pandas"],
+    notes: "search_trend = abs_count × (group_reviews / total_brand_reviews) — normalizes raw volume against review distribution to make cross-brand comparisons meaningful.",
+    guide: "/project1/search-trend",
+    guideLabel: "Search Trend Scraper",
+  },
+  {
+    id: "S3N",
+    name: "Step 3: OCR Extraction",
+    project: "product-db-pipeline",
+    description: "Runs Google Cloud Vision OCR on product images for representative products, extracting visible text overlays such as ingredient callouts and product claims.",
+    features: [
+      "Identifies representative products from DynamoDB metadata",
+      "Fetches product images from S3 and sends to Google Cloud Vision API",
+      "Extracts all detected text tokens from each image",
+      "Stores keyword lists in DynamoDB per itemId for downstream use",
+    ],
+    source: "DynamoDB: OliveYoung_MetaData, BK_MetaData · S3: images/",
+    destination: [{ label: "DynamoDB", value: "OliveYoung_ItemKeywords, BK_ItemKeywords" }],
+    tech: ["Python", "Google Cloud Vision API", "boto3"],
+  },
+  {
+    id: "S4",
+    name: "Step 4: Prepare Analysis Data",
+    project: "product-db-pipeline",
+    description: "Assembles a structured batch payload for each representative product — OCR keywords, base64-encoded images, and mapped category labels — ready for GPT-4o mini.",
+    features: [
+      "Loads representative products from PostgreSQL product_raw",
+      "Fetches OCR keyword tokens from DynamoDB per product",
+      "Base64-encodes product images for multimodal API input",
+      "Maps numeric category IDs to human-readable labels for prompt context",
+    ],
+    source: "PostgreSQL: product_raw_{version} · DynamoDB: ItemKeywords · S3: images",
+    destination: [{ label: "Output", value: "Prepared batch data for AI analysis" }],
+    tech: ["Python", "boto3", "PIL", "pandas"],
+  },
+  {
+    id: "S5",
+    name: "Step 5: AI Analysis",
+    project: "product-db-pipeline",
+    description: "Processes each product batch through GPT-4o mini via the OpenAI API using the KeywordExtractor module to extract standardized product attributes.",
+    features: [
+      "Sends prepared product payloads (image + text context) to GPT-4o mini",
+      "Uses the KeywordExtractor module to structure prompts and parse responses",
+      "Extracts skin type compatibility, concern tags, texture descriptors, product claims",
+      "Returns raw structured analysis results for processing in Step 6",
+    ],
+    source: "Prepared batch data from Step 4",
+    destination: [{ label: "Output", value: "Raw analysis results" }],
+    tech: ["Python", "OpenAI API (GPT-4o mini)"],
+    notes: "Module: KeywordExtractor — encapsulates prompt templating, retry logic, and response validation.",
+  },
+  {
+    id: "S6",
+    name: "Step 6: Process Analysis Results",
+    project: "product-db-pipeline",
+    description: "Maps numeric answer codes to human-readable option text, merges newly analyzed products with the existing versioned table, and writes the combined result.",
+    features: [
+      "Maps numeric API response values to their corresponding option text labels",
+      "Loads existing analysis records from the active versioned product_analysis table",
+      "Merges new results with existing data, deduplicating on product group ID",
+      "Writes the combined dataset to the versioned product_analysis table",
+    ],
+    source: "Raw analysis results from Step 5",
+    destination: [{ label: "PostgreSQL", value: "product_analysis_{version}" }],
+    tech: ["Python", "pandas", "psycopg2"],
+  },
+  {
+    id: "S7",
+    name: "Step 7: Feature Engineering",
+    project: "product-db-pipeline",
+    description: "Computes item-level and group-level features — price tiers, popularity scores, vitality indexes, lifecycle stages — and writes the final product_service table.",
+    features: [
+      "Computes item-level features: size category, price tier, discount rate",
+      "Calculates group-level popularity score from review count + trend data",
+      "Derives vitality index and lifecycle stage (rising / stable / declining)",
+      "Produces product_service — the final table consumed by the API layer",
+    ],
+    source: "PostgreSQL: product_analysis_{version}",
+    destination: [{ label: "PostgreSQL", value: "product_service_{version} (Final)" }],
+    tech: ["Python", "pandas", "psycopg2"],
+  },
+  {
+    id: "INGR",
+    name: "Ingredient Embeddings",
+    project: "backend-trendmix-dev",
+    github: "https://github.com/cch0213/backend-trendmix-dev",
+    description: "Computes KLUE-BERT embeddings for all unique ingredients extracted from the analysis table, enabling semantic ingredient search in the API.",
+    features: [
+      "Reads unique ingredient strings from product_analysis (question_id: CM00aa7ace476c60)",
+      "Runs KLUE-BERT (klue/bert-base) to produce 768-dim embeddings per ingredient",
+      "Saves embedding map to S3 as JSON for the production API",
+      "Caches locally under app/data/embeddings/ for dev/testing",
+    ],
+    source: "PostgreSQL: product_analysis_{version} (question_id: CM00aa7ace476c60)",
+    destination: [
+      { label: "S3", value: "models/data/ingredient-search/ingredient_embeddings.json" },
+      { label: "Local cache", value: "app/data/embeddings/ingredient_embeddings.json" },
+    ],
+    tech: ["Python", "Transformers", "PyTorch", "KLUE-BERT"],
+    notes: "Model: klue/bert-base · 768-dim vectors · cosine similarity used at query time.",
+    guide: "/project1/ingredient-embeddings",
+    guideLabel: "Ingredient Embeddings",
+  },
+];
+
+const MERMAID = `flowchart TD
+    OY([OY Scraper]) & BK([BK Scraper]) --> DDB1[(DynamoDB + S3)]
+    DDB1 --> S1(Step 1: Data Loading) --> S2(Step 2: Preprocessing & Grouping) --> PG1[(product_raw)]
+    PG1 --> REV([Review Scraper]) --> S3R[(S3: reviews)]
+    S3R --> SENT(Sentiment Analysis) --> PG2[(product_review)]
+    PG2 --> TREND([Search Trend Scraper]) --> PG3[(product_search_trend)]
+
+    DDB1 --> S3(Step 3: OCR Extraction) --> DDB2[(ItemKeywords)]
+    PG1 --> S4
+    DDB2 --> S4(Step 4: Prepare Analysis Data) --> S5(Step 5: AI Analysis) --> S6(Step 6: Process Results) --> PG4[(product_analysis)]
+    PG4 --> S7(Step 7: Feature Engineering) --> PG5[(product_service)]
+    PG4 --> INGR([Ingredient Embeddings]) --> API{API}
+
+    classDef scraper fill:#FFF3EB,stroke:#D4620A,stroke-width:1.5px,color:#D4620A
+    classDef process fill:#EDF7EF,stroke:#2d8a4e,stroke-width:1.5px,color:#2d8a4e
+    classDef storage fill:#FDF6E3,stroke:#b8860b,stroke-width:1.5px,color:#b8860b
+    classDef api    fill:#F3F0FA,stroke:#7c5cbf,stroke-width:1.5px,color:#7c5cbf
+
+    class OY,BK,REV,TREND,INGR scraper
+    class S1,S2,S3,S4,S5,S6,S7,SENT process
+    class DDB1,DDB2,S3R,PG1,PG2,PG3,PG4,PG5 storage
+    class API api`;
+---
+
+<DocsLayout title="Data Pipeline">
+  <PageHeader
+    title="Data Pipeline Architecture"
+    tags={["13 stages", "DynamoDB + S3", "PostgreSQL"]}
+  />
+
+  <!-- ── Diagram ── -->
+  <section class="stage-section">
+    <h2>Pipeline Diagram</h2>
+    <div class="diagram-wrap">
+      <div class="mermaid">{MERMAID}</div>
+    </div>
+  </section>
+
+  <!-- ── Stage sections ── -->
+  {stages.map((s, i) => (
+    <section class="stage-section">
+      <div class="stage-eyebrow">
+        <span class="stage-badge">Stage {String(i + 1).padStart(2, '0')}</span>
+        <span class="eyebrow-sep">·</span>
+        <span class="eyebrow-group">{GROUP_LABEL[s.id]}</span>
+      </div>
+
+      <h2>{s.name}</h2>
+
+      {s.github
+        ? <a href={s.github} target="_blank" rel="noopener" class="project-link">{s.project} ↗</a>
+        : <span class="project-label">{s.project}</span>
+      }
+
+      <p class="stage-desc">{s.description}</p>
+
+      <div class="stage-body">
+        <!-- Left: What it does -->
+        <div class="spec-card feat-card">
+          <div class="spec-title">What it does</div>
+          <ul class="feature-list">
+            {s.features.map(f => <li>{f}</li>)}
+          </ul>
+        </div>
+
+        <!-- Right: Tech Stack + IO stacked -->
+        <div class="body-right">
+          <div class="spec-card">
+            <div class="spec-title">Tech Stack</div>
+            <div class="tech-badges">
+              {s.tech.map(t => <span class="tech-badge">{t}</span>)}
+            </div>
+          </div>
+
+          <div class="spec-card io-card">
+            <div class="io-half">
+              <div class="spec-title">Input</div>
+              <p class="io-value">{s.source}</p>
+            </div>
+            <div class="io-divider">↓</div>
+            <div class="io-half">
+              <div class="spec-title">Output</div>
+              <div class="dest-list">
+                {s.destination.map(d => (
+                  <div class="dest-row">
+                    <span class="dest-tag">{d.label}</span>
+                    <code class="dest-val">{d.value}</code>
+                    {d.note && <span class="dest-note">{d.note}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {s.notes && (
+        <div class="notes-block">
+          <p class="notes-text">{s.notes}</p>
+        </div>
+      )}
+
+      {s.schema && (
+        <details class="schema-details">
+          <summary>Output Schema</summary>
+          <div class="details-body">
+            <pre><code>{JSON.stringify(s.schema, null, 2)}</code></pre>
+          </div>
+        </details>
+      )}
+
+      {s.guide && (
+        <a href={s.guide} class="guide-link">{s.guideLabel} →</a>
+      )}
+    </section>
+  ))}
+</DocsLayout>
+
+<!-- Mermaid CDN + init -->
+<script is:inline>
+(function () {
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+  s.onload = function () {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        fontFamily: "'JetBrains Mono', ui-monospace, Menlo, monospace",
+        fontSize: '12px',
+        primaryColor: '#F0EBE3',
+        primaryBorderColor: '#D5CEC4',
+        primaryTextColor: '#1A1A1A',
+        lineColor: '#C4BBB0',
+        edgeLabelBackground: 'transparent',
+        clusterBkg: '#FAF6F0',
+        clusterBorder: '#D5CEC4',
+        titleColor: '#888888',
+        nodeTextColor: '#1A1A1A',
+        secondaryColor: '#F0EBE3',
+        tertiaryColor: '#F0EBE3',
+      },
+      flowchart: { nodeSpacing: 30, rankSpacing: 50, curve: 'basis', padding: 20 },
+    });
+  };
+  document.head.appendChild(s);
+})();
+</script>
+
+<style>
+  /* ── Diagram ── */
+  :global(.mermaid svg) { width: 100% !important; height: auto !important; }
+
+  /* ── Section spacing ── */
+  .stage-section {
+    padding-bottom: 3.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .stage-section:last-child { border-bottom: none; }
+
+  /* ── Diagram ── */
+  .diagram-wrap {
+    margin-top: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    overflow-x: auto;
+  }
+
+  /* ── Eyebrow ── */
+  .stage-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .stage-badge {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-bg);
+    border: 1px solid rgba(83, 155, 245, 0.25);
+    border-radius: 6px;
+    padding: 0.18rem 0.6rem;
+    letter-spacing: 0.04em;
+  }
+
+  .eyebrow-sep { color: var(--border-hi); font-size: 0.78rem; }
+
+  .eyebrow-group {
+    font-family: var(--font-sans);
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ── Project link / label ── */
+  .project-link, .project-label {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    margin-bottom: 1rem;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .project-label { color: var(--text-dim); }
+  .project-link:hover { text-decoration: underline; }
+
+  /* ── Description ── */
+  .stage-desc {
+    font-size: 0.975rem;
+    color: var(--text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+    max-width: 700px;
+  }
+
+  /* ── Stage body: 2-col unified block ── */
+  .stage-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    align-items: start;
+    margin-bottom: 1.5rem;
+  }
+
+  .body-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .spec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+  }
+
+  /* feat-card stretches to match right column height */
+  .feat-card {
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  .spec-title {
+    font-family: var(--font-sans);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+    margin-top: 0;
+  }
+
+  .feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .feature-list li::before {
+    content: '✓';
+    color: #3fb950;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+  }
+
+  .tech-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .tech-badge {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.18rem 0.7rem;
+  }
+
+  /* ── IO card ── */
+  .io-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .io-half { padding: 0.2rem 0; }
+  .io-half + .io-half { padding-top: 0.85rem; }
+
+  .io-divider {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--border-hi);
+    padding: 0.4rem 0;
+    border-top: 1px dashed var(--border);
+    margin-top: 0.85rem;
+  }
+
+  .io-value {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .dest-list { display: flex; flex-direction: column; gap: 0.4rem; }
+  .dest-row  { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+
+  .dest-tag {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    min-width: 4.5rem;
+  }
+
+  .dest-val {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+  }
+
+  .dest-note {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+
+  /* ── Notes ── */
+  .notes-block {
+    border-left: 3px solid rgba(83, 155, 245, 0.3);
+    padding: 0.65rem 1.1rem;
+    margin-bottom: 1.25rem;
+    background: rgba(83, 155, 245, 0.04);
+    border-radius: 0 8px 8px 0;
+  }
+
+  .notes-text {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+    margin: 0;
+    font-style: italic;
+  }
+
+  /* ── Schema details ── */
+  .schema-details {
+    margin-bottom: 1.25rem;
+  }
+
+  .schema-details summary {
+    font-size: 0.85rem;
+  }
+
+  .schema-details .details-body { padding: 1rem 1.25rem; }
+  .schema-details pre { margin: 0; font-size: 0.8rem; }
+
+  /* ── Guide link ── */
+  .guide-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 0.3rem 1.1rem;
+    background: var(--bg);
+    transition: border-color 0.15s;
+  }
+  .guide-link:hover { border-color: var(--accent); text-decoration: none; }
+
+  /* ── Responsive ── */
+  @media (max-width: 680px) {
+    .stage-body { grid-template-columns: 1fr; }
+    .feat-card { height: auto; }
+  }
+</style>

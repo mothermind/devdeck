@@ -1,0 +1,187 @@
+{
+  "postgresql": {
+    "brand": [
+      {
+        "version": 2,
+        "rows": 749,
+        "active": false,
+        "created_at": "2025-07-15T07:01:33.168246"
+      },
+      {
+        "version": 3,
+        "rows": 825,
+        "active": true,
+        "created_at": "2025-12-23T05:44:15.806754"
+      },
+      {
+        "version": 4,
+        "rows": 855,
+        "active": false,
+        "created_at": "2026-01-05T07:08:00.897729"
+      }
+    ],
+    "product_analysis": [
+      {
+        "version": 2,
+        "rows": 142077,
+        "active": false,
+        "created_at": "2026-01-02T00:17:25.540327"
+      },
+      {
+        "version": 3,
+        "rows": 165185,
+        "active": false,
+        "created_at": "2026-01-02T06:16:54.314257"
+      },
+      {
+        "version": 4,
+        "rows": 181027,
+        "active": true,
+        "created_at": "2026-01-06T00:16:55.299054"
+      }
+    ],
+    "product_group": [
+      {
+        "version": 2,
+        "rows": 6891,
+        "active": false,
+        "created_at": "2025-07-15T07:23:41.698912"
+      },
+      {
+        "version": 3,
+        "rows": 8289,
+        "active": true,
+        "created_at": "2025-12-23T05:44:22.948263"
+      },
+      {
+        "version": 4,
+        "rows": 9148,
+        "active": false,
+        "created_at": "2026-01-05T07:08:10.642743"
+      }
+    ],
+    "product_raw": [
+      {
+        "version": 6,
+        "rows": 10398,
+        "active": false,
+        "created_at": "2025-07-16T08:49:31.337512"
+      },
+      {
+        "version": 7,
+        "rows": 12026,
+        "active": false,
+        "created_at": "2025-12-23T06:04:34.360806"
+      },
+      {
+        "version": 8,
+        "rows": 12976,
+        "active": true,
+        "created_at": "2026-01-05T07:33:27.274692"
+      }
+    ],
+    "product_review": [
+      {
+        "version": 2,
+        "rows": 406413,
+        "active": false,
+        "created_at": "2026-02-03T01:56:58.456535"
+      },
+      {
+        "version": 3,
+        "rows": 390317,
+        "active": true,
+        "created_at": "2026-02-19T08:01:56.400738"
+      }
+    ],
+    "product_search_trend": [
+      {
+        "version": 1,
+        "rows": 244247,
+        "active": false,
+        "created_at": "2026-02-03T03:38:25.998935"
+      },
+      {
+        "version": 2,
+        "rows": 298421,
+        "active": false,
+        "created_at": "2026-02-03T05:11:41.747255"
+      },
+      {
+        "version": 3,
+        "rows": 297082,
+        "active": false,
+        "created_at": "2026-02-19T08:10:07.046038"
+      },
+      {
+        "version": 4,
+        "rows": 996351,
+        "active": true,
+        "created_at": "2026-02-20T00:33:00.874403"
+      }
+    ],
+    "product_service": [
+      {
+        "version": 2,
+        "rows": 8289,
+        "active": false,
+        "created_at": "2026-01-02T00:46:42.695973"
+      },
+      {
+        "version": 3,
+        "rows": 8287,
+        "active": false,
+        "created_at": "2026-01-02T06:18:21.456747"
+      },
+      {
+        "version": 4,
+        "rows": 8287,
+        "active": true,
+        "created_at": "2026-01-06T00:17:53.266641"
+      }
+    ]
+  },
+  "s3": [
+    {"name": "images/olive_young/product_detail/",  "objects": 19543, "size_gb": 154.7},
+    {"name": "images/beauty_kurly/product_detail/", "objects": 2395,  "size_gb": 9.77},
+    {"name": "images/olive_young/product_main/",    "objects": 26431, "size_gb": 3.35},
+    {"name": "models/mdeberta-v3-multilingual/",    "objects": 5,     "size_gb": 1.05},
+    {"name": "images/beauty_kurly/product_main/",   "objects": 3558,  "size_gb": 0.89},
+    {"name": "models/klue-bert-base/",              "objects": 7,     "size_gb": 0.41},
+    {"name": "models/data/ingredient-search/",      "objects": 3,     "size_gb": 0.31}
+  ],
+  "s3_data": [
+    {"name": "data/reviews/processed/",  "version": "260107", "type": "lance",   "files": 47, "size_gb": 15.76},
+    {"name": "data/reviews/raw/",        "version": "260204", "type": "parquet", "files": 94, "size_gb": 1.11},
+    {"name": "data/products/raw/",       "version": "260108", "type": "jsonl",   "files": 1,  "size_gb": 0.64},
+    {"name": "data/server/",             "version": "260220", "type": "duckdb",  "files": 1,  "size_gb": 0.15},
+    {"name": "data/products/processed/", "version": "260108", "type": "lance",   "files": 7,  "size_gb": 0.12}
+  ],
+  "dynamodb": [
+    {
+      "name": "OliveYoung_MetaData",
+      "items": 15503,
+      "size_bytes": 22612703
+    },
+    {
+      "name": "OliveYoung_ItemKeywords",
+      "items": 12470,
+      "size_bytes": 80940123
+    },
+    {
+      "name": "review_reference_last_date",
+      "items": 12444,
+      "size_bytes": 416912
+    },
+    {
+      "name": "BK_MetaData",
+      "items": 3210,
+      "size_bytes": 2942309
+    },
+    {
+      "name": "BK_ItemKeywords",
+      "items": 2140,
+      "size_bytes": 7587898
+    }
+  ]
+}

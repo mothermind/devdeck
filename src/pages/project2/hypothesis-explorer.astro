@@ -1,0 +1,34 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import HypothesisExplorer from '../../components/HypothesisExplorer.tsx';
+---
+
+<DocsLayout title="Hypothesis Explorer">
+  <PageHeader
+    title="Hypothesis Explorer"
+    tags={["Zero-shot NLI", "mDeBERTa-v3", "Interactive"]}
+  />
+
+  <p>
+    <strong>Zero-shot NLI</strong> reframes sentiment as textual entailment —
+    <em>does this review entail this hypothesis?</em>
+    Each <code>(review, hypothesis)</code> pair is scored independently, so labels
+    can be redefined at inference time without retraining.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Task</th><th>Labels</th><th style="text-align:right">#</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Overall Sentiment</td><td>positive · negative · neutral</td><td style="text-align:right">3</td></tr>
+      <tr><td>Satisfaction</td><td>very · somewhat · un</td><td style="text-align:right">3</td></tr>
+      <tr><td>Aspect × 4 <em>(moisture, effectiveness, texture, absorption)</em></td><td>positive · negative · neutral</td><td style="text-align:right">12</td></tr>
+    </tbody>
+  </table>
+
+  <hr />
+
+  <HypothesisExplorer client:load />
+</DocsLayout>

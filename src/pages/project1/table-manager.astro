@@ -1,0 +1,75 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+
+const CMD = "uv run python src/database/tbl_version_manager.py";
+---
+
+<DocsLayout title="Table Version Manager">
+  <PageHeader
+    title="Table Version Manager"
+    tags={["PostgreSQL", "Versioned Tables", "CLI Tool"]}
+  />
+
+  <pre><code>cd ~/product-db-pipeline</code></pre>
+
+  <h2>Commands</h2>
+  <table>
+    <thead><tr><th>Command</th><th>Short</th><th>Arguments</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>--list</td><td>-l</td><td>--type TABLE_TYPE</td><td>List all table versions (optionally filter by type)</td></tr>
+      <tr><td>--activate</td><td>-a</td><td>TABLE_TYPE VERSION</td><td>Activate a specific version (deactivates others)</td></tr>
+      <tr><td>--cleanup</td><td>-c</td><td>TABLE_TYPE [KEEP_COUNT]</td><td>Delete old versions, keep N most recent (default: 3)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Usage</h2>
+
+  <details>
+    <summary>List versions</summary>
+    <div class="details-body">
+      <strong>All versions</strong>
+      <pre><code>{CMD} --list</code></pre>
+      <strong>Filter by table type</strong>
+      <pre><code>{CMD} -l -t product_raw</code></pre>
+    </div>
+  </details>
+
+  <details>
+    <summary>Activate a version</summary>
+    <div class="details-body">
+      <pre><code>{CMD} --activate product_raw 7</code></pre>
+      <pre><code>{CMD} -a product_service 2</code></pre>
+      <p class="caption">Deactivates all other versions of the same type, then activates the specified one.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Cleanup old versions</summary>
+    <div class="details-body">
+      <strong>Keep 3 most recent (default)</strong>
+      <pre><code>{CMD} --cleanup product_raw</code></pre>
+      <strong>Keep 5 most recent</strong>
+      <pre><code>{CMD} -c product_raw 5</code></pre>
+      <strong>Dry run (preview only)</strong>
+      <pre><code>{CMD} --cleanup product_raw --dry-run</code></pre>
+      <p class="caption">Active version is always preserved regardless of keep count.</p>
+    </div>
+  </details>
+
+  <hr />
+
+  <h2>Table Types</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>product_raw</td><td>Raw product data with item-level details</td></tr>
+      <tr><td>product_group</td><td>Product groupings and group metadata</td></tr>
+      <tr><td>product_service</td><td>Final aggregated service data</td></tr>
+      <tr><td>product_analysis</td><td>AI analysis results</td></tr>
+      <tr><td>product_review</td><td>Review sentiment results</td></tr>
+      <tr><td>product_search_trend</td><td>Search trend metrics</td></tr>
+      <tr><td>brand</td><td>Brand reference data</td></tr>
+    </tbody>
+  </table>
+</DocsLayout>

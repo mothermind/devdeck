@@ -1,0 +1,341 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+---
+
+<DocsLayout title="Scrapers">
+  <PageHeader title="Scrapers Guide" tags={["3 scrapers", "EC2: t3.medium", "Region: ap-northeast-2"]} />
+
+  <details>
+    <summary>EC2 Instance Management</summary>
+    <div class="details-body">
+      <p class="caption">Start / stop / check the EC2 scraping instance</p>
+      <strong>Start</strong>
+      <pre><code>aws ec2 start-instances --instance-ids &lt;YOUR_INSTANCE_ID&gt;</code></pre>
+      <strong>Stop</strong>
+      <pre><code>aws ec2 stop-instances --instance-ids &lt;YOUR_INSTANCE_ID&gt;</code></pre>
+      <strong>Status</strong>
+      <pre><code>aws ec2 describe-instances --instance-ids &lt;YOUR_INSTANCE_ID&gt; \
+  --query 'Reservations[0].Instances[0].State.Name' --output text</code></pre>
+    </div>
+  </details>
+
+  <details>
+    <summary>SSH Connection</summary>
+    <div class="details-body">
+      <strong>Connect</strong>
+      <pre><code>ssh -i ~/.ssh/your-key.pem ubuntu@&lt;YOUR_EC2_IP&gt;</code></pre>
+      <strong>Connect & Attach Tmux</strong>
+      <pre><code>ssh -i ~/.ssh/your-key.pem ubuntu@&lt;YOUR_EC2_IP&gt; -t 'tmux attach -t scraper'</code></pre>
+      <p><strong>Detach:</strong> <code>Ctrl+B</code> then <code>D</code></p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Tmux Commands</summary>
+    <div class="details-body">
+      <strong>List sessions</strong>
+      <pre><code>tmux list-sessions</code></pre>
+      <strong>Attach</strong>
+      <pre><code>tmux attach -t scraper</code></pre>
+      <strong>View without attaching</strong>
+      <pre><code>tmux capture-pane -t scraper -p | tail -50</code></pre>
+      <strong>Kill session</strong>
+      <pre><code>tmux kill-session -t scraper</code></pre>
+      <p><strong>Detach:</strong> <code>Ctrl+B</code> then <code>D</code></p>
+    </div>
+  </details>
+
+  <details>
+    <summary>First-Time Setup (One-Time)</summary>
+    <div class="details-body">
+      <strong>System update</strong>
+      <pre><code>sudo apt update && sudo apt upgrade -y</code></pre>
+      <strong>Install dependencies</strong>
+      <pre><code>sudo apt install -y python3-pip python3-venv git</code></pre>
+      <strong>Install uv</strong>
+      <pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.local/bin/env</code></pre>
+      <strong>Install Playwright</strong>
+      <pre><code>uv run playwright install chromium
+uv run playwright install-deps</code></pre>
+    </div>
+  </details>
+
+  <!-- ── Tab Navigation ──────────────────────────────────── -->
+  <div class="tabs">
+    <div class="tab-bar" role="tablist">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="oy">oy products</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="bk">bk products</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="reviews">reviews</button>
+    </div>
+
+    <!-- ── OY Products ─────────────────────────────────────── -->
+    <div class="tab-panel active" id="tab-oy" role="tabpanel">
+      <p class="caption">oy products scraper w/ given categories id</p>
+      <p><code>oliveyoung-scraper-async</code> <a href="https://github.com/KBWW/oliveyoung-scraper-async" target="_blank">GitHub ↗</a></p>
+
+      <div class="seg-bar">
+        <button class="seg-btn active" data-seg="run" data-group="oy">Run</button>
+        <button class="seg-btn" data-seg="status" data-group="oy">Status</button>
+        <button class="seg-btn" data-seg="logs" data-group="oy">Logs</button>
+        <button class="seg-btn" data-seg="deploy" data-group="oy">Deploy</button>
+        <button class="seg-btn" data-seg="config" data-group="oy">Config</button>
+        <button class="seg-btn" data-seg="info" data-group="oy">Info</button>
+      </div>
+      <hr />
+
+      <div class="seg-panel active" id="seg-oy-run">
+        <strong>Monthly Fresh Run</strong>
+        <p class="caption">Reset progress and start fresh</p>
+        <pre><code>cd ~/oliveyoung-scraper-async && \
+tmux new-session -d -s scraper 'uv run python main.py --reset --parallel 2 --async-delay 2'</code></pre>
+        <strong>Resume Run</strong>
+        <p class="caption">Auto-skips completed categories</p>
+        <pre><code>cd ~/oliveyoung-scraper-async && \
+tmux new-session -d -s scraper 'uv run python main.py --parallel 2 --async-delay 2'</code></pre>
+        <strong>Retry Failed</strong>
+        <pre><code>cd ~/oliveyoung-scraper-async && \
+tmux new-session -d -s scraper 'uv run python main.py --retry-failed --parallel 2 --async-delay 2'</code></pre>
+        <strong>Test Run</strong>
+        <pre><code>cd ~/oliveyoung-scraper-async && uv run python main.py --limit 10 --parallel 2</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-oy-status">
+        <strong>Check Progress</strong>
+        <pre><code>cd ~/oliveyoung-scraper-async && uv run python main.py --status</code></pre>
+        <strong>View progress.json</strong>
+        <pre><code>cat ~/oliveyoung-scraper-async/progress.json | python -m json.tool</code></pre>
+        <strong>Reset Progress</strong>
+        <pre><code>cd ~/oliveyoung-scraper-async && uv run python main.py --reset --status</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-oy-logs">
+        <strong>View Today's Log (Live)</strong>
+        <pre><code>tail -f ~/oliveyoung-scraper-async/logs/oliveyoung_2026-01-30.csv</code></pre>
+        <strong>Count by Status</strong>
+        <pre><code>cut -d',' -f3 ~/oliveyoung-scraper-async/logs/oliveyoung_2026-01-30.csv | sort | uniq -c</code></pre>
+        <strong>List All Logs</strong>
+        <pre><code>ls -la ~/oliveyoung-scraper-async/logs/</code></pre>
+        <strong>View Categories</strong>
+        <pre><code>cat ~/oliveyoung-scraper-async/categories.json | python -m json.tool</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-oy-deploy">
+        <strong>Pull Latest</strong>
+        <pre><code>cd ~/oliveyoung-scraper-async && git pull origin main</code></pre>
+        <strong>Sync Dependencies</strong>
+        <pre><code>cd ~/oliveyoung-scraper-async && uv sync</code></pre>
+        <strong>Full Redeploy</strong>
+        <pre><code>cd ~/oliveyoung-scraper-async && \
+git pull origin main && \
+uv sync && \
+uv run python main.py --status</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-oy-config">
+        <h3>CLI Arguments</h3>
+        <table>
+          <thead><tr><th>Argument</th><th>Short</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>--parallel N</td><td>-p N</td><td>5</td><td>Concurrent workers</td></tr>
+            <tr><td>--async-delay N</td><td></td><td>1.0</td><td>Delay between products (parallel)</td></tr>
+            <tr><td>--sync</td><td>-s</td><td></td><td>Synchronous mode</td></tr>
+            <tr><td>--delay N</td><td>-d N</td><td>3.0</td><td>Delay between products (sync)</td></tr>
+            <tr><td>--limit N</td><td>-l N</td><td>0</td><td>Product limit (0 = none)</td></tr>
+            <tr><td>--reset</td><td></td><td></td><td>Clear progress</td></tr>
+            <tr><td>--status</td><td></td><td></td><td>Show progress only</td></tr>
+            <tr><td>--retry-failed</td><td></td><td></td><td>Retry failed categories</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="seg-panel" id="seg-oy-info">
+        <strong>Project Structure</strong>
+        <pre><code>oliveyoung-scraper-async/
+├── main.py                 # Main scraping logic
+├── categories.json         # Category IDs to scrape
+├── progress.json           # Runtime state (git-ignored)
+├── pyproject.toml          # uv project config
+├── utils/
+│   ├── utility_functions.py
+│   └── logger.py
+└── logs/
+    └── oliveyoung_YYYY-MM-DD.csv</code></pre>
+      </div>
+    </div>
+
+    <!-- ── BK Products ─────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-bk" role="tabpanel">
+      <p class="caption">bk products scraper - saves to DynamoDB & S3</p>
+      <p><code>bkurly-scraper-async</code> <a href="https://github.com/KBWW/bkurly-scraper-async" target="_blank">GitHub ↗</a></p>
+
+      <div class="seg-bar">
+        <button class="seg-btn active" data-seg="run" data-group="bk">Run</button>
+        <button class="seg-btn" data-seg="status" data-group="bk">Status</button>
+        <button class="seg-btn" data-seg="logs" data-group="bk">Logs</button>
+        <button class="seg-btn" data-seg="deploy" data-group="bk">Deploy</button>
+        <button class="seg-btn" data-seg="config" data-group="bk">Config</button>
+        <button class="seg-btn" data-seg="info" data-group="bk">Info</button>
+      </div>
+      <hr />
+
+      <div class="seg-panel active" id="seg-bk-run">
+        <strong>Production Run</strong>
+        <p class="caption">Auto-skips existing items in DynamoDB</p>
+        <pre><code>cd ~/bkurly-scraper-async && \
+tmux new-session -d -s scraper 'uv run python main.py'</code></pre>
+        <strong>Local Test</strong>
+        <pre><code>cd ~/bkurly-scraper-async && uv run python main.py</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-bk-status">
+        <strong>View Recent Logs</strong>
+        <pre><code>tail -50 ~/bkurly-scraper-async/logs/beauty-kurly_2026-01-30.csv</code></pre>
+        <strong>Count by Status</strong>
+        <pre><code>cut -d',' -f3 ~/bkurly-scraper-async/logs/beauty-kurly_2026-01-30.csv | sort | uniq -c</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-bk-logs">
+        <strong>View Today's Log (Live)</strong>
+        <pre><code>tail -f ~/bkurly-scraper-async/logs/beauty-kurly_2026-01-30.csv</code></pre>
+        <strong>View Failed Items</strong>
+        <pre><code>grep 'FAILED' ~/bkurly-scraper-async/logs/beauty-kurly_2026-01-30.csv</code></pre>
+        <strong>List All Logs</strong>
+        <pre><code>ls -la ~/bkurly-scraper-async/logs/</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-bk-deploy">
+        <strong>Pull Latest</strong>
+        <pre><code>cd ~/bkurly-scraper-async && git pull origin main</code></pre>
+        <strong>Sync Dependencies</strong>
+        <pre><code>cd ~/bkurly-scraper-async && uv sync</code></pre>
+        <strong>Install Playwright</strong>
+        <pre><code>cd ~/bkurly-scraper-async && uv run playwright install</code></pre>
+        <strong>Full Redeploy</strong>
+        <pre><code>cd ~/bkurly-scraper-async && \
+git pull origin main && \
+uv sync && \
+uv run playwright install</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-bk-config">
+        <strong>Concurrency Setting</strong>
+        <p class="caption">In main.py:</p>
+        <pre><code>scraper = AsyncBKurlyScraper(max_concurrent_browsers=5)</code></pre>
+        <strong>Verbosity Levels</strong>
+        <p class="caption">In main.py:</p>
+        <pre><code># QUIET: errors only (default)
+# NORMAL: errors + success
+# VERBOSE: all items
+verbosity=Verbosity.QUIET</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-bk-info">
+        <strong>Project Structure</strong>
+        <pre><code>bkurly-scraper-async/
+├── main.py                 # Main scraping logic
+├── pyproject.toml          # uv project config
+├── .env                    # AWS credentials (git-ignored)
+├── utils/
+│   ├── utility_functions.py
+│   └── logger.py
+└── logs/
+    └── beauty-kurly_YYYY-MM-DD.csv</code></pre>
+        <strong>Data Collected</strong>
+        <table>
+          <thead><tr><th>Field</th><th>Description</th><th>Storage</th></tr></thead>
+          <tbody>
+            <tr><td>item_id</td><td>Product ID</td><td>DynamoDB</td></tr>
+            <tr><td>item_name</td><td>Product name</td><td>DynamoDB</td></tr>
+            <tr><td>brand_name</td><td>Brand name</td><td>DynamoDB</td></tr>
+            <tr><td>original_price</td><td>Original price</td><td>DynamoDB</td></tr>
+            <tr><td>sale_price</td><td>Sale price</td><td>DynamoDB</td></tr>
+            <tr><td>size</td><td>Product size (ml)</td><td>DynamoDB</td></tr>
+            <tr><td>ingredients</td><td>Ingredients list</td><td>DynamoDB</td></tr>
+            <tr><td>reviews</td><td>Review count</td><td>DynamoDB</td></tr>
+            <tr><td>Main image</td><td>Product image</td><td>S3</td></tr>
+            <tr><td>Detail image</td><td>Detail image</td><td>S3</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Reviews ────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-reviews" role="tabpanel">
+      <p class="caption">review scraper - fetches reviews from oy products</p>
+      <p><code>review-scrapper-async</code> <a href="https://github.com/cch0213/review-scrapper-async" target="_blank">GitHub ↗</a></p>
+
+      <div class="seg-bar">
+        <button class="seg-btn active" data-seg="run" data-group="rv">Run</button>
+        <button class="seg-btn" data-seg="status" data-group="rv">Status</button>
+        <button class="seg-btn" data-seg="logs" data-group="rv">Logs</button>
+        <button class="seg-btn" data-seg="deploy" data-group="rv">Deploy</button>
+        <button class="seg-btn" data-seg="config" data-group="rv">Config</button>
+        <button class="seg-btn" data-seg="info" data-group="rv">Info</button>
+      </div>
+      <hr />
+
+      <div class="seg-panel active" id="seg-rv-run">
+        <strong>Production Run</strong>
+        <pre><code>cd ~/review-scrapper-async && \
+tmux new-session -d -s scraper 'uv run python main.py --cutoff 250418'</code></pre>
+        <strong>With Cutoff Date</strong>
+        <pre><code>cd ~/review-scrapper-async && \
+uv run python main.py --run-id 260130 --cutoff 250101</code></pre>
+        <strong>Dry Run (Test)</strong>
+        <pre><code>cd ~/review-scrapper-async && \
+uv run python main.py --run-id 260130 --dry-run --limit 10</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-rv-status">
+        <strong>Check Progress</strong>
+        <p class="caption">Review scraper logs progress to CSV files</p>
+        <pre><code>tail -50 ~/review-scrapper-async/logs/review_2026-01-30.csv</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-rv-logs">
+        <strong>View Today's Log</strong>
+        <pre><code>tail -f ~/review-scrapper-async/logs/review_2026-01-30.csv</code></pre>
+        <strong>List All Logs</strong>
+        <pre><code>ls -la ~/review-scrapper-async/logs/</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-rv-deploy">
+        <strong>Pull Latest</strong>
+        <pre><code>cd ~/review-scrapper-async && git pull origin main</code></pre>
+        <strong>Sync Dependencies</strong>
+        <pre><code>cd ~/review-scrapper-async && uv sync</code></pre>
+        <strong>Full Redeploy</strong>
+        <pre><code>cd ~/review-scrapper-async && \
+git pull origin main && \
+uv sync</code></pre>
+      </div>
+
+      <div class="seg-panel" id="seg-rv-config">
+        <h3>CLI Arguments</h3>
+        <table>
+          <thead><tr><th>Argument</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>--run-id</td><td>today</td><td>Run ID (YYMMDD format) for resuming interrupted jobs</td></tr>
+            <tr><td>--dry-run</td><td>False</td><td>Test mode: skip S3 upload, save locally instead</td></tr>
+            <tr><td>--limit</td><td>None</td><td>Limit number of products to process (for testing)</td></tr>
+            <tr><td>--headless</td><td>True</td><td>Run browser in headless mode</td></tr>
+            <tr><td>--no-headless</td><td></td><td>Run browser with visible window</td></tr>
+            <tr><td>--cutoff</td><td>None</td><td>Cutoff date (YYMMDD) - reviews older than this won't be scraped</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="seg-panel" id="seg-rv-info">
+        <strong>Project Structure</strong>
+        <pre><code>review-scrapper-async/
+├── main.py                 # Main scraping logic
+├── pyproject.toml          # uv project config
+├── .env                    # AWS credentials (git-ignored)
+└── logs/
+    └── review_YYYY-MM-DD.csv</code></pre>
+      </div>
+    </div>
+  </div>
+</DocsLayout>

@@ -1,0 +1,539 @@
+---
+// All JS for the Git for Excel People cheatsheet page
+---
+  <script is:inline>
+    // ─── SCROLL SPY ──────────────────────────────
+    const navLinks = document.querySelectorAll('.nav-link[href]');
+    const sections = [];
+
+    navLinks.forEach(link => {
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) sections.push({ id, el, link });
+    });
+
+    const spyObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          navLinks.forEach(l => l.classList.remove('active'));
+          const match = [...navLinks].find(l => l.getAttribute('href') === '#' + id);
+          if (match) match.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+
+    sections.forEach(s => spyObserver.observe(s.el));
+
+    // ─── PANIC BAR (SEARCH) ─────────────────────
+    const panicInput = document.getElementById('panicInput');
+    const panicResults = document.getElementById('panicResults');
+    const panicClear = document.getElementById('panicClear');
+    const cmdCards = document.querySelectorAll('.cmd-card');
+
+    const searchIndex = [];
+    cmdCards.forEach(card => {
+      const cmd = card.getAttribute('data-cmd') || '';
+      const search = card.getAttribute('data-search') || '';
+      const desc = card.querySelector('.cmd-desc')?.textContent || '';
+      const analogy = card.querySelector('.cmd-analogy')?.textContent || '';
+      const section = card.closest('section');
+      searchIndex.push({
+        cmd,
+        text: (cmd + ' ' + search + ' ' + desc + ' ' + analogy).toLowerCase(),
+        sectionId: section?.id || '',
+        cardEl: card,
+      });
+    });
+
+    panicInput.addEventListener('input', () => {
+      const q = panicInput.value.trim().toLowerCase();
+      panicClear.classList.toggle('show', q.length > 0);
+
+      if (q.length < 2) {
+        panicResults.classList.remove('show');
+        return;
+      }
+
+      const terms = q.split(/\s+/);
+      const matches = searchIndex.filter(item =>
+        terms.every(t => item.text.includes(t))
+      );
+
+      if (matches.length === 0) {
+        panicResults.innerHTML = '<div class="panic-no-results">No matches. Try different words.</div>';
+      } else {
+        panicResults.innerHTML = matches.slice(0, 8).map(m =>
+          `<a class="panic-result" href="#${m.sectionId}" onclick="flashCard('${m.cmd.replace(/'/g, "\\'")}')">
+            <span class="panic-result-cmd">${esc(m.cmd)}</span>
+            <span class="panic-result-desc">${esc(m.cardEl.querySelector('.cmd-desc')?.textContent || '')}</span>
+          </a>`
+        ).join('');
+      }
+
+      panicResults.classList.add('show');
+    });
+
+    panicInput.addEventListener('focus', () => {
+      if (panicInput.value.trim().length >= 2) panicResults.classList.add('show');
+    });
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.panic-input-wrap')) panicResults.classList.remove('show');
+    });
+
+    function clearPanic() {
+      panicInput.value = '';
+      panicClear.classList.remove('show');
+      panicResults.classList.remove('show');
+    }
+
+    function flashCard(cmd) {
+      panicResults.classList.remove('show');
+      panicInput.blur();
+      const card = [...cmdCards].find(c => c.getAttribute('data-cmd') === cmd);
+      if (card) {
+        setTimeout(() => {
+          card.style.transition = 'border-color 0.3s, box-shadow 0.3s';
+          card.style.borderColor = 'var(--accent)';
+          card.style.boxShadow = '0 0 0 3px var(--accent-bg)';
+          setTimeout(() => {
+            card.style.borderColor = '';
+            card.style.boxShadow = '';
+          }, 1500);
+        }, 400);
+      }
+    }
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // ─── MOBILE SIDEBAR ─────────────────────────
+    function toggleMobile() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebarOverlay').classList.toggle('show');
+    }
+
+    function closeMobile() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebarOverlay').classList.remove('show');
+    }
+
+    // ─── ANIMATION 1: REPLAY ────────────────────
+    function replayAnim(id) {
+      const stage = document.getElementById(id);
+      const html = stage.innerHTML;
+      stage.innerHTML = '';
+      void stage.offsetWidth;
+      stage.innerHTML = html;
+    }
+
+    // ─── ANIMATION 2: TAB DUPLICATE ─────────────
+    function runTabAnim() {
+      const cursor = document.getElementById('tabMouse');
+      const ctx = document.getElementById('tabCtx');
+      const ctxDup = document.getElementById('tabCtxDup');
+      const tab1 = document.getElementById('tabSheet1');
+      const tabC = document.getElementById('tabCopy');
+
+      // Reset
+      cursor.style.opacity = '0';
+      cursor.style.transition = 'none';
+      cursor.style.left = '220px';
+      cursor.style.top = '260px';
+      ctx.classList.remove('show');
+      tabC.classList.remove('slide-in');
+      ctxDup.classList.remove('hl');
+      tab1.classList.add('is-active');
+      tab1.classList.remove('is-inactive');
+      tabC.classList.remove('is-active');
+
+      const steps = [
+        { d: 400, fn: () => { cursor.style.opacity='1'; cursor.style.transition='left 0.7s ease,top 0.7s ease,opacity 0.3s'; cursor.style.left='40px'; cursor.style.top='248px'; }},
+        { d: 900, fn: () => { tab1.style.animation='clickFlash 0.2s ease'; setTimeout(()=>tab1.style.animation='',250); }},
+        { d: 400, fn: () => { ctx.classList.add('show'); }},
+        { d: 500, fn: () => { cursor.style.left='80px'; cursor.style.top='200px'; }},
+        { d: 600, fn: () => { ctxDup.classList.add('hl'); }},
+        { d: 500, fn: () => { ctxDup.classList.remove('hl'); ctx.classList.remove('show'); }},
+        { d: 350, fn: () => { tabC.classList.add('slide-in'); }},
+        { d: 500, fn: () => { tab1.classList.remove('is-active'); tab1.classList.add('is-inactive'); tabC.classList.add('is-active'); }},
+        { d: 300, fn: () => { cursor.style.left='105px'; cursor.style.top='248px'; }},
+        { d: 400, fn: () => { tabC.style.animation='clickFlash 0.2s ease'; setTimeout(()=>tabC.style.animation='',250); }},
+        { d: 700, fn: () => { cursor.style.opacity='0'; }},
+      ];
+
+      let t = 0;
+      steps.forEach(s => { t += s.d; setTimeout(s.fn, t); });
+    }
+
+    // ─── ANIMATION 3: git add (selective) ────────
+    function runAddAnim() {
+      const cursor = document.getElementById('addMouse');
+      // The cells we'll selectively stage (only Q3 column: d1, d2, d3, d4)
+      const toStage = ['ac-d1', 'ac-d2', 'ac-d3', 'ac-d4'];
+      // All edited cells (to reset)
+      const allEdited = ['ac-d1', 'ac-d2', 'ac-c3', 'ac-d3', 'ac-d4', 'ac-b5', 'ac-d5'];
+
+      // Reset all cells
+      allEdited.forEach(id => {
+        const el = document.getElementById(id);
+        el.classList.add('edited');
+        el.classList.remove('staged');
+      });
+      cursor.style.transition = 'none';
+      cursor.style.opacity = '0';
+      cursor.style.left = '300px';
+      cursor.style.top = '240px';
+
+      // Cell positions (approximate x,y within the stage)
+      const positions = {
+        'ac-d1': { x: 237, y: 92 },
+        'ac-d2': { x: 237, y: 112 },
+        'ac-d3': { x: 237, y: 132 },
+        'ac-d4': { x: 237, y: 152 },
+      };
+
+      const steps = [
+        // Cursor appears
+        { d: 400, fn: () => {
+          cursor.style.opacity = '1';
+          cursor.style.transition = 'left 0.5s ease, top 0.5s ease, opacity 0.3s';
+        }},
+        // Move to D1 (Q3 header)
+        { d: 200, fn: () => {
+          cursor.style.left = positions['ac-d1'].x + 'px';
+          cursor.style.top = positions['ac-d1'].y + 'px';
+        }},
+        // Click D1 — stage it
+        { d: 600, fn: () => {
+          const el = document.getElementById('ac-d1');
+          el.classList.remove('edited');
+          el.classList.add('staged');
+          el.style.animation = 'clickFlash 0.2s ease';
+          setTimeout(() => el.style.animation = '', 250);
+        }},
+        // Move to D2
+        { d: 500, fn: () => {
+          cursor.style.left = positions['ac-d2'].x + 'px';
+          cursor.style.top = positions['ac-d2'].y + 'px';
+        }},
+        // Click D2
+        { d: 450, fn: () => {
+          const el = document.getElementById('ac-d2');
+          el.classList.remove('edited');
+          el.classList.add('staged');
+          el.style.animation = 'clickFlash 0.2s ease';
+          setTimeout(() => el.style.animation = '', 250);
+        }},
+        // Move to D3
+        { d: 500, fn: () => {
+          cursor.style.left = positions['ac-d3'].x + 'px';
+          cursor.style.top = positions['ac-d3'].y + 'px';
+        }},
+        // Click D3
+        { d: 450, fn: () => {
+          const el = document.getElementById('ac-d3');
+          el.classList.remove('edited');
+          el.classList.add('staged');
+          el.style.animation = 'clickFlash 0.2s ease';
+          setTimeout(() => el.style.animation = '', 250);
+        }},
+        // Move to D4
+        { d: 500, fn: () => {
+          cursor.style.left = positions['ac-d4'].x + 'px';
+          cursor.style.top = positions['ac-d4'].y + 'px';
+        }},
+        // Click D4
+        { d: 450, fn: () => {
+          const el = document.getElementById('ac-d4');
+          el.classList.remove('edited');
+          el.classList.add('staged');
+          el.style.animation = 'clickFlash 0.2s ease';
+          setTimeout(() => el.style.animation = '', 250);
+        }},
+        // Cursor fades — C3, B5, D5 remain orange (not staged)
+        { d: 700, fn: () => {
+          cursor.style.opacity = '0';
+        }},
+      ];
+
+      let t = 0;
+      steps.forEach(s => { t += s.d; setTimeout(s.fn, t); });
+    }
+
+    // ─── ANIMATION 4: git add . (select all) ────
+    function runAddAllAnim() {
+      const allEdited = ['aa-d1', 'aa-d2', 'aa-c3', 'aa-d3', 'aa-d4', 'aa-b5', 'aa-d5'];
+      const status = document.getElementById('aa-status');
+
+      // Reset all cells
+      allEdited.forEach(id => {
+        const el = document.getElementById(id);
+        el.classList.add('edited');
+        el.classList.remove('staged');
+        el.style.animation = '';
+      });
+      status.textContent = '6 cells modified';
+
+      const steps = [
+        // Brief pause to see the "before" state
+        { d: 800, fn: () => {
+          status.textContent = 'Selecting all changes...';
+        }},
+        // Flash all edited cells simultaneously — the "select all" moment
+        { d: 600, fn: () => {
+          allEdited.forEach((id, i) => {
+            setTimeout(() => {
+              const el = document.getElementById(id);
+              el.style.animation = 'selectAllFlash 0.4s ease forwards';
+              setTimeout(() => {
+                el.classList.remove('edited');
+                el.classList.add('staged');
+                el.style.animation = '';
+              }, 400);
+            }, i * 60); // Slight stagger for a ripple effect
+          });
+        }},
+        // Update status
+        { d: 900, fn: () => {
+          status.textContent = '6 cells staged \u2713';
+        }},
+      ];
+
+      let t = 0;
+      steps.forEach(s => { t += s.d; setTimeout(s.fn, t); });
+    }
+
+    // ─── ANIMATION: git clone ──────────────────
+    function runCloneAnim() {
+      var web = document.getElementById('cloneWeb');
+      var dlBtn = document.getElementById('cloneDlBtn');
+      var dFile = document.getElementById('cloneDFile');
+      var label = document.getElementById('cloneLabel');
+
+      // Reset
+      web.classList.remove('fade-out');
+      web.style.opacity = '';
+      dlBtn.classList.remove('clicked');
+      dFile.classList.remove('landed');
+      label.classList.remove('show');
+
+      var steps = [
+        // 1. Pause — user sees the web view
+        { d: 1200, fn: function() {
+          // Button click
+          dlBtn.classList.add('clicked');
+        }},
+        // 2. Brief hold on clicked state
+        { d: 800, fn: function() {
+          // Screen transitions: web fades out, desktop revealed
+          web.classList.add('fade-out');
+        }},
+        // 3. Desktop is now visible, file lands
+        { d: 700, fn: function() {
+          dFile.classList.add('landed');
+        }},
+        // 4. Label
+        { d: 600, fn: function() {
+          label.classList.add('show');
+        }},
+      ];
+
+      var t = 0;
+      steps.forEach(function(s) { t += s.d; setTimeout(s.fn, t); });
+    }
+
+    // ─── ANIMATION: git commit -m ───────────────
+    function runCommitAnim() {
+      var fileMenu = document.getElementById('commitFileMenu');
+      var dim = document.getElementById('commitDim');
+      var modal = document.getElementById('commitModal');
+      var input = document.getElementById('commitInput');
+      var typing = document.getElementById('commitTyping');
+      var cursor = document.getElementById('commitCursor');
+      var saveBtn = document.getElementById('commitSaveBtn');
+      var status = document.getElementById('commitStatus');
+      var newFile = document.getElementById('commitNewFile');
+      var newName = document.getElementById('commitNewName');
+
+      var filename = 'Budget_Q3_added_Q3_data.xlsx';
+
+      // Reset
+      fileMenu.classList.remove('file-clicked');
+      dim.classList.remove('show');
+      modal.classList.remove('show');
+      input.classList.remove('focused');
+      typing.textContent = '';
+      cursor.style.display = 'inline-block';
+      saveBtn.classList.remove('clicked');
+      status.classList.remove('saved');
+      status.querySelector('span').textContent = '6 cells staged \u2713';
+      newFile.classList.remove('show');
+      newName.textContent = '';
+
+      var charIdx = 0;
+
+      function typeNext() {
+        if (charIdx < filename.length) {
+          typing.textContent += filename[charIdx];
+          charIdx++;
+          setTimeout(typeNext, 45 + Math.random() * 35);
+        }
+      }
+
+      var steps = [
+        // 1. Click File menu
+        { d: 800, fn: function() {
+          fileMenu.classList.add('file-clicked');
+        }},
+        // 2. Dim + modal appears (Save As)
+        { d: 600, fn: function() {
+          fileMenu.classList.remove('file-clicked');
+          dim.classList.add('show');
+          modal.classList.add('show');
+        }},
+        // 3. Input focuses
+        { d: 400, fn: function() {
+          input.classList.add('focused');
+        }},
+        // 4. Typing starts
+        { d: 300, fn: function() {
+          typeNext();
+        }},
+        // 5. Typing done, pause
+        { d: filename.length * 60 + 500, fn: function() {
+          cursor.style.display = 'none';
+        }},
+        // 6. Save button clicks
+        { d: 400, fn: function() {
+          saveBtn.classList.add('clicked');
+        }},
+        // 7. Modal + dim disappear, new file appears on right
+        { d: 400, fn: function() {
+          modal.classList.remove('show');
+          dim.classList.remove('show');
+          saveBtn.classList.remove('clicked');
+          status.classList.add('saved');
+          status.querySelector('span').textContent = '\u2713 Saved';
+          newName.textContent = filename;
+          newFile.classList.add('show');
+        }},
+      ];
+
+      var t = 0;
+      steps.forEach(function(s) { t += s.d; setTimeout(s.fn, t); });
+    }
+
+    // ─── ANIMATION: git status ────────
+    function runStatusAnim() {
+      var stagedCells = ['sc-b2', 'sc-d5'];
+      var modifiedCells = ['sc-c2', 'sc-c3', 'sc-d2', 'sc-d3'];
+      var untrackedCells = document.querySelectorAll('#statusRow4 .wb-cell.untracked');
+      var legendItems = ['legendStaged', 'legendModified', 'legendUntracked', 'legendClean'];
+
+      // Reset: hide all states and labels
+      stagedCells.forEach(function(id) { document.getElementById(id).classList.add('hidden'); });
+      modifiedCells.forEach(function(id) { document.getElementById(id).classList.add('hidden'); });
+      untrackedCells.forEach(function(el) { el.classList.add('hidden'); });
+      legendItems.forEach(function(id) { document.getElementById(id).classList.remove('show'); });
+
+      var steps = [
+        // 1. Reveal staged cells + label
+        { d: 1000, fn: function() {
+          stagedCells.forEach(function(id) { document.getElementById(id).classList.remove('hidden'); });
+          document.getElementById('legendStaged').classList.add('show');
+        }},
+        // 2. Reveal modified cells + label
+        { d: 1200, fn: function() {
+          modifiedCells.forEach(function(id) { document.getElementById(id).classList.remove('hidden'); });
+          document.getElementById('legendModified').classList.add('show');
+        }},
+        // 3. Reveal untracked row + label
+        { d: 1200, fn: function() {
+          untrackedCells.forEach(function(el) { el.classList.remove('hidden'); });
+          document.getElementById('legendUntracked').classList.add('show');
+        }},
+        // 4. Show clean label
+        { d: 1000, fn: function() {
+          document.getElementById('legendClean').classList.add('show');
+        }},
+      ];
+
+      var t = 0;
+      steps.forEach(function(s) { t += s.d; setTimeout(s.fn, t); });
+    }
+
+    // ─── ANIMATION: git diff ────────
+    function runDiffAnim() {
+      var changedCells = ['dc-b2', 'dc-c2', 'dc-c3', 'dc-d5'];
+      var addedCells = document.querySelectorAll('#diffRow4 .wb-cell.diff-added');
+      var legendChanged = document.getElementById('legendChanged');
+      var legendAdded = document.getElementById('legendAdded');
+
+      // Reset
+      changedCells.forEach(function(id) { document.getElementById(id).classList.remove('reveal'); });
+      addedCells.forEach(function(el) { el.classList.remove('reveal'); });
+      legendChanged.classList.remove('show');
+      legendAdded.classList.remove('show');
+
+      var steps = [
+        // 1. Reveal changed cells (red strikethrough → green new)
+        { d: 1000, fn: function() {
+          changedCells.forEach(function(id) { document.getElementById(id).classList.add('reveal'); });
+          legendChanged.classList.add('show');
+        }},
+        // 2. Reveal added row (green)
+        { d: 1200, fn: function() {
+          addedCells.forEach(function(el) { el.classList.add('reveal'); });
+          legendAdded.classList.add('show');
+        }},
+      ];
+
+      var t = 0;
+      steps.forEach(function(s) { t += s.d; setTimeout(s.fn, t); });
+    }
+
+    // ─── ANIMATION: git log ────────
+    function runLogAnim() {
+      var rows = ['logRow1', 'logRow2', 'logRow3', 'logRow4', 'logRow5', 'logRow6'];
+
+      // Reset
+      rows.forEach(function(id) { document.getElementById(id).classList.remove('show'); });
+
+      var steps = [];
+      rows.forEach(function(id, i) {
+        steps.push({ d: 400, fn: function() {
+          document.getElementById(id).classList.add('show');
+        }});
+      });
+
+      var t = 600;
+      steps.forEach(function(s) { t += s.d; setTimeout(s.fn, t); });
+    }
+
+    // Auto-play animations on scroll
+    const autoPlayObserver = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const id = e.target.id;
+          if (id === 'anim-clone') runCloneAnim();
+          if (id === 'anim-commit') runCommitAnim();
+          if (id === 'anim-status') runStatusAnim();
+          if (id === 'anim-diff') runDiffAnim();
+          if (id === 'anim-log') runLogAnim();
+          if (id === 'anim2') runTabAnim();
+          if (id === 'anim-add') runAddAnim();
+          if (id === 'anim-add-all') runAddAllAnim();
+          autoPlayObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.4 });
+
+    ['anim-clone', 'anim-commit', 'anim-status', 'anim-diff', 'anim-log', 'anim2', 'anim-add', 'anim-add-all'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) autoPlayObserver.observe(el);
+    });
+  </script>
