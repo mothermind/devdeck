@@ -1,15 +1,15 @@
 {
-  "OY Scraper": "2026-02-01",
-  "BK Scraper": "2026-02-01",
-  "Step 1: Data Loading": "2026-02-02",
-  "Step 2: Preprocessing & Grouping": "2026-02-02",
-  "Review Scraper": "2026-02-02",
-  "Step 3: OCR Extraction": "2026-02-03",
-  "Sentiment Analysis (skincare_analysis)": "2026-02-04",
-  "Step 4: Prepare Analysis Data": "2026-02-04",
-  "Search Trend Scraper": "2026-02-05",
-  "Step 5: AI Analysis": "2026-02-05",
-  "Step 6: Process Analysis Results": "2026-02-06",
-  "Step 7: Feature Engineering": "2026-02-07",
-  "Ingredient Embeddings": "2026-02-07"
+  "OY Scraper": "2026-04-13",
+  "BK Scraper": "2026-04-12",
+  "Step 1: Data Loading": "2026-04-09",
+  "Step 2: Preprocessing & Grouping": "2026-04-09",
+  "Review Scraper": "2026-04-05",
+  "Step 7: Feature Engineering": "2026-04-03",
+  "Search Trend Scraper": "2026-03-25",
+  "Step 5: AI Analysis": "2026-03-18",
+  "Step 6: Process Analysis Results": "2026-03-18",
+  "Step 3: OCR Extraction": "2026-03-17",
+  "Step 4: Prepare Analysis Data": "2026-03-17",
+  "Sentiment Analysis (skincare_analysis)": "2026-03-20",
+  "Ingredient Embeddings": "2026-02-20"
 }

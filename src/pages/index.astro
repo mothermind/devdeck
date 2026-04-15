@@ -97,7 +97,7 @@ function sortS3<T extends { name: string; size_gb: number }>(rows: T[]): T[] {
 }
 
 // ── Pipeline status ───────────────────────────────────────
-const TODAY = new Date("2026-03-06"); // fixed for static build
+const TODAY = new Date(); // evaluated at build time
 
 function stageStatus(dateStr: string | undefined): { label: string; color: string; dateStr: string } {
   if (!dateStr) return { label: "—", color: "var(--text-dim)", dateStr: "no record" };
@@ -150,7 +150,7 @@ const QUICK_LINKS = [
   <PageHeader title="Dashboard" tags={["PostgreSQL", "S3", "DynamoDB"]} />
 
   <div class="section-label">Backend Dev Server</div>
-  <pre><code>cd /Users/llnormll/PythonDev/backend-fastapi-copy && source venv/bin/activate && python -m app.main</code></pre>
+  <pre><code>source venv/bin/activate && python -m app.main</code></pre>
 
   <!-- ── Pipeline Status ────────────────────────────────── -->
   <div class="section-label">Pipeline Status</div>
