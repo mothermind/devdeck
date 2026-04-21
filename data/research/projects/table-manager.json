@@ -1,0 +1,165 @@
+{
+  "projectSlug": "table-manager",
+  "projectPath": "/Users/llnormll/PythonDev/product-db-pipeline",
+  "briefPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/table-manager.json",
+  "generatedAt": "2026-04-21T00:00:00Z",
+  "findings": {
+    "purpose": "TableVersionManager is a single-file Python class + argparse CLI that manages versioned snapshots of PostgreSQL tables in the product-db-pipeline project — letting engineers create, activate, list, and clean up numbered table versions (e.g. product_raw_007) without ever touching live reads or writing ad-hoc SQL.",
+    "techStack": {
+      "primary": ["Python 3.x", "argparse (CLI layer)", "SQLAlchemy (text() queries over postgresql_engine)"],
+      "infra": ["AWS RDS PostgreSQL (ap-southeast-1)", "AWS DynamoDB", "AWS S3"],
+      "keyLibs": ["rich (Console, Table, Panel, Progress)", "pandas (DataFrame ingestion + chunked to_sql)", "sqlalchemy", "aioboto3", "python-dotenv"]
+    },
+    "architecture": "The component is a single file: `src/database/tbl_version_manager.py`. It defines one class (`TableVersionManager`) and an `if __name__ == '__main__'` argparse block that serves as the CLI entry point. The class receives a `DBConnector` instance (injected at construction) and an optional `rich.Console`. All Postgres work goes through `db_connector.postgresql_engine` — a SQLAlchemy engine pointed at the AWS RDS instance. A companion `table_versions` registry table (lives in Postgres, no migration file found in repo) tracks every version. The CLI exposes three commands: `--list`, `--activate`, and `--cleanup`, each mapping 1:1 to a class method. Rich handles all terminal output — tables, panels, progress bars — so the tool reads like a polished TUI despite being stdlib argparse under the hood.",
+    "keyCommands": [
+      {
+        "cmd": "python src/database/tbl_version_manager.py --list",
+        "purpose": "Print a Rich table of all versions across all table types, with row counts, timestamps, and ACTIVE badges.",
+        "verified": true
+      },
+      {
+        "cmd": "python src/database/tbl_version_manager.py --list --type product_raw",
+        "purpose": "Same as --list but filtered to a single table type.",
+        "verified": true
+      },
+      {
+        "cmd": "python src/database/tbl_version_manager.py --activate product_raw 7",
+        "purpose": "Atomically deactivate all versions of product_raw, then set v007 active — both UPDATEs inside one transaction.",
+        "verified": true
+      },
+      {
+        "cmd": "python src/database/tbl_version_manager.py --cleanup product_raw",
+        "purpose": "Drop inactive versions beyond the 3 most recent (default keep_count), always preserving the active version.",
+        "verified": true
+      },
+      {
+        "cmd": "python src/database/tbl_version_manager.py --cleanup product_raw 5 --dry-run",
+        "purpose": "Preview what cleanup would delete — prints [DRY RUN] lines without executing any DROP or DELETE.",
+        "verified": true
+      },
+      {
+        "cmd": "python src/database/tbl_version_manager.py -c product_raw 2 -n",
+        "purpose": "Short-flag equivalent of the dry-run cleanup above.",
+        "verified": true
+      }
+    ],
+    "notableDecisions": [
+      {
+        "decision": "Version number allocated inside the database (COALESCE(MAX(version), 0) + 1), not in Python",
+        "rationale": "Prevents race conditions if two pipeline runs attempt to create a new version simultaneously — the MAX() happens inside a single DB read, so the DB serializes it rather than relying on Python-side coordination.",
+        "evidence": "src/database/tbl_version_manager.py:27"
+      },
+      {
+        "decision": "activate_version wraps both UPDATEs (deactivate-all then activate-one) in a single begin() transaction",
+        "rationale": "Guarantees the 'one active per type' invariant cannot be violated by a partial write — there is no moment where zero or two versions are active. No database triggers or constraints are needed; the transaction boundary enforces it.",
+        "evidence": "src/database/tbl_version_manager.py:106-119"
+      },
+      {
+        "decision": "Schema cloning via CREATE TABLE ... (LIKE source INCLUDING ALL) rather than SELECT INTO or df.to_sql re-inference",
+        "rationale": "Preserves all index definitions, constraints, and column types exactly from the source table. The DataFrame path (df.to_sql without copy_structure_from) exists as a fallback but the pipeline uses LIKE for fidelity.",
+        "evidence": "src/database/tbl_version_manager.py:91-94"
+      },
+      {
+        "decision": "Dry-run is a first-class --dry-run / -n flag on --cleanup, not a separate script or env var",
+        "rationale": "Makes preview behavior explicit and CLI-idiomatic; the same method (cleanup_old_versions) handles both modes via the dry_run bool — no code duplication. The Rich panel title and style shift to 'dim' in dry-run mode to visually distinguish it.",
+        "evidence": "src/database/tbl_version_manager.py:165-197, argparse block lines 256-259"
+      },
+      {
+        "decision": "Chunked bulk insert (chunk_size=500) with Rich progress bar when copy_structure_from is used",
+        "rationale": "Prevents memory exhaustion on large DataFrames and provides live feedback during long inserts — SpinnerColumn + BarColumn + MofNCompleteColumn gives row-level progress without a custom loop.",
+        "evidence": "src/database/tbl_version_manager.py:54-70"
+      },
+      {
+        "decision": "cleanup_old_versions preserves the active version unconditionally, even if it falls outside keep_count",
+        "rationale": "The SQL filters WHERE is_active = FALSE before applying OFFSET :keep, so the active version is never in the candidate set regardless of how old it is.",
+        "evidence": "src/database/tbl_version_manager.py:168-176"
+      }
+    ],
+    "currentStatus": "dormant — last meaningful commit 2026-02-20, git log shows only 'save' messages since initial work. Component appears stable/complete rather than actively developed.",
+    "entryPoints": [
+      "src/database/tbl_version_manager.py"
+    ],
+    "dataFlow": "Pipeline stage calls TableVersionManager.create_versioned_table(table_type, df, copy_structure_from) → version number fetched from DB → new table created (LIKE source or df.to_sql) → data chunked in via pandas to_sql in 500-row batches with Rich progress → INSERT into table_versions registry to record the new version. Separately, the CLI's --activate path calls activate_version → two UPDATEs in one transaction → follow-up list_versions call shows the updated state. Reads (get_active_table) are separate one-liner SELECTs that the rest of the pipeline calls to resolve the logical table name (e.g. 'product_raw') to the physical versioned name (e.g. 'product_raw_007') before querying data."
+  },
+  "scopeBoundary": {
+    "dbConnectorSketch": "DBConnector (src/database/db_connector.py, ~18KB) is the shared connection wrapper for the entire product-db-pipeline. Its __init__ builds three clients: a boto3 DynamoDB resource, a SQLAlchemy create_engine pointed at the AWS RDS PostgreSQL instance (hardcoded connection string in the source), and an aioboto3 async session for S3. It loads AWS credentials from variables/.env via python-dotenv. TableVersionManager receives a DBConnector instance at construction and uses only one attribute: db_connector.postgresql_engine. DBConnector imports TableVersionManager itself (circular at module level, resolved because TVM is imported inside __main__ guard in the CLI path).",
+    "tableVersionsRegistrySketch": "The table_versions registry table lives in PostgreSQL. No CREATE TABLE migration file was found in the repo — the table was likely created manually or via a one-off script not committed. The schema is fully inferable from the SQL in tbl_version_manager.py: columns are table_type (string, used as a logical name like 'product_raw'), version (integer, the sequential version number), table_name (string, the physical Postgres table name like 'product_raw_007'), is_active (boolean, the flip-bit for the active version), created_at (timestamp, populated by Postgres default on INSERT), and row_count (integer, written at version creation time). There is no unique constraint or trigger enforcing one-active-per-type — that invariant is maintained purely by the transactional UPDATE pair in activate_version."
+  },
+  "perPage": [
+    {
+      "pageSlug": "table-manager",
+      "contentPointers": [
+        {
+          "claim": "Hero invocation: the simplest useful command is --list with no arguments — shows a full Rich table of all versions, row counts, timestamps, and ACTIVE status badges",
+          "evidence": "src/database/TableVersionManagerCLI.md:18-19 + tbl_version_manager.py:143-163"
+        },
+        {
+          "claim": "Command catalog: three commands — --list [-l], --activate [-a], --cleanup [-c] — each with short flags, plus --dry-run [-n] modifier on cleanup",
+          "evidence": "src/database/TableVersionManagerCLI.md:12-113, tbl_version_manager.py:228-259"
+        },
+        {
+          "claim": "Mechanism: activation uses a two-UPDATE transaction (deactivate-all then activate-one) inside a single begin() — 'one active per type' enforced without triggers or constraints",
+          "evidence": "src/database/tbl_version_manager.py:106-119"
+        },
+        {
+          "claim": "Mechanism: version number is COALESCE(MAX(version), 0) + 1 issued by the database, not Python — race-safe allocation",
+          "evidence": "src/database/tbl_version_manager.py:27"
+        },
+        {
+          "claim": "Mechanism: schema cloning uses CREATE TABLE new (LIKE source INCLUDING ALL) — preserves indexes, constraints, and types exactly",
+          "evidence": "src/database/tbl_version_manager.py:94"
+        },
+        {
+          "claim": "Mechanism: bulk fill uses chunked pandas to_sql in 500-row batches with Rich progress (SpinnerColumn + BarColumn + MofNCompleteColumn, transient=True)",
+          "evidence": "src/database/tbl_version_manager.py:54-70"
+        },
+        {
+          "claim": "Dry-run is --dry-run / -n flag on --cleanup; the same cleanup_old_versions method handles both modes; Rich panel shifts to dim style to visually flag no-op mode",
+          "evidence": "src/database/tbl_version_manager.py:165-197, 279-286"
+        },
+        {
+          "claim": "cleanup_old_versions protects the active version unconditionally via WHERE is_active = FALSE before OFFSET — active version can never be in the delete candidate set",
+          "evidence": "src/database/tbl_version_manager.py:168-176"
+        },
+        {
+          "claim": "Real output sample from CLI.md shows version numbering convention: v007, v006, v005 with row counts and timestamps",
+          "evidence": "src/database/TableVersionManagerCLI.md:36-39"
+        },
+        {
+          "claim": "Scope/boundary: DBConnector provides the postgresql_engine; table_versions registry has columns table_type, version, table_name, is_active, created_at, row_count — no migration file in repo",
+          "evidence": "src/database/db_connector.py:19-25, tbl_version_manager.py:27,77-83,100,110,116,125-126,172,192"
+        },
+        {
+          "claim": "Table types in production: product_raw, product_group, product_service, product_analysis, brand",
+          "evidence": "src/database/TableVersionManagerCLI.md:86-92"
+        }
+      ],
+      "suggestedSections": [
+        "Hero invocation — `--list` output screenshot or code block showing the Rich table with ACTIVE badge",
+        "Command catalog — concise table: command | short flag | what it does | key args",
+        "How activation works — the two-UPDATE transaction mechanism, invariant-without-triggers",
+        "How version numbers are assigned — COALESCE(MAX)+1 on the DB side, why that matters",
+        "How tables are cloned — LIKE source INCLUDING ALL + chunked bulk fill with progress bar",
+        "Dry-run design — first-class flag, same code path, visual panel distinction",
+        "Cleanup safety — active version exclusion via WHERE is_active = FALSE",
+        "Scope note — DBConnector relationship + table_versions registry schema (one paragraph each)"
+      ]
+    }
+  ],
+  "filesRead": [
+    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/table-manager.json",
+    "/Users/llnormll/PythonDev/product-db-pipeline/src/database/TableVersionManagerCLI.md",
+    "/Users/llnormll/PythonDev/product-db-pipeline/src/database/tbl_version_manager.py",
+    "/Users/llnormll/PythonDev/product-db-pipeline/src/database/db_connector.py (lines 1-80)"
+  ],
+  "gapsFromBrief": [
+    "table_versions schema origin: no CREATE TABLE migration file exists in the repo. The schema is fully inferable from the SQL in tbl_version_manager.py, but the exact DDL (e.g. whether created_at has DEFAULT NOW(), whether there is a primary key on (table_type, version)) is not in source. Ayden would need to run \\d table_versions in psql to get the authoritative schema if exact DDL matters for the docs page.",
+    "Why these specific table types (product_raw, product_group, product_service, product_analysis, brand): the CLI.md lists them as a reference table but the reasoning is pipeline domain knowledge, not in code. Brief did not ask for this, but flagging in case the page wants a one-liner on each.",
+    "No README at project root mentions the Table Version Manager specifically — the tool appears to be a utility built alongside the pipeline with minimal external documentation beyond the CLI.md."
+  ],
+  "recommendations": [
+    "[out-of-scope] The DBConnector has a hardcoded RDS connection string at db_connector.py:24 (credentials visible in plaintext). This is a security smell worth noting if the repo is ever made public.",
+    "[out-of-scope] The CLI.md documents only --list, --activate, --cleanup — it does not document the programmatic API (create_versioned_table, get_active_table) which pipeline stages call directly. A future 'API reference' section could complete the picture for contributors.",
+    "[out-of-scope] cleanup_old_versions runs DROP TABLE and DELETE FROM table_versions in the same transaction, but the DROP TABLE is DDL — in PostgreSQL, DDL is transactional, so a failure mid-loop will roll back correctly. This is correct behavior worth calling out in the docs as a safety note."
+  ]
+}

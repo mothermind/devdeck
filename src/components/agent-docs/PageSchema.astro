@@ -1,0 +1,572 @@
+---
+// PageSchema.astro — deterministic renderer for agent-docs frontmatter.
+// Called from MDX body as <PageSchema data={frontmatter} />
+
+interface CommandArg {
+  name: string;
+  required: boolean;
+  description: string;
+}
+
+interface Command {
+  id: string;
+  invocation: string;
+  shortFlag?: string;
+  example?: string;
+  purpose: string;
+  verified: boolean;
+  args?: CommandArg[];
+}
+
+interface Mechanism {
+  id: string;
+  claim: string;
+  invariant?: string;
+  evidence: string;
+  rationale?: string;
+}
+
+interface KnownIssue {
+  id: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  evidence: string;
+  scope: 'this-doc' | 'dependency-not-this-doc';
+}
+
+interface Dependency {
+  name: string;
+  path: string;
+  kind?: string;
+  role: string;
+}
+
+interface RelatedEntry {
+  slug: string;
+  relation: string;
+}
+
+interface AgentDocsData {
+  slug: string;
+  kind: string;
+  displayName: string;
+  tagline: string;
+  documentedBy: string;
+  documentedAt: string;
+  lastVerified: string;
+  sourceRepo: string;
+  sourcePath: string;
+  tags: string[];
+  techStack: {
+    primary: string[];
+    infra: string[];
+    libs: string[];
+  };
+  dependencies: Dependency[];
+  commands: Command[];
+  mechanisms: Mechanism[];
+  status: {
+    stage: 'active' | 'stable' | 'dormant' | 'archived';
+    lastCommitAt: string;
+    knownIssues: KnownIssue[];
+  };
+  scope: {
+    inDoc: string[];
+    outOfScope: string[];
+  };
+  related: RelatedEntry[];
+}
+
+interface Props {
+  data: AgentDocsData;
+}
+
+const { data } = Astro.props;
+
+// Stage badge color map
+const stageColors: Record<string, string> = {
+  stable:   '#2da44e',
+  active:   'var(--accent)',
+  dormant:  '#9e6a03',
+  archived: 'var(--text-dim)',
+};
+
+// Severity color map
+const severityColors: Record<string, string> = {
+  critical: '#cf222e',
+  high:     '#cf222e',
+  medium:   '#9e6a03',
+  low:      'var(--text-dim)',
+};
+---
+
+<!-- 1. Identity -->
+<div class="ps-header">
+  <h1>{data.displayName}</h1>
+  <div class="ps-identity-row">
+    <span class="ps-badge ps-kind">{data.kind}</span>
+    <span class="ps-tagline">{data.tagline}</span>
+  </div>
+  {data.tags.length > 0 && (
+    <div class="ps-tags">
+      {data.tags.map(tag => <span class="ps-tag">{tag}</span>)}
+    </div>
+  )}
+  <hr />
+</div>
+
+<!-- 2. Source -->
+<h2 id="source">Source</h2>
+<table>
+  <tbody>
+    <tr>
+      <td>sourceRepo</td>
+      <td><code>{data.sourceRepo}</code></td>
+    </tr>
+    <tr>
+      <td>sourcePath</td>
+      <td><code>{data.sourcePath}</code></td>
+    </tr>
+    <tr>
+      <td>lastVerified</td>
+      <td>{data.lastVerified}</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- 3. Tech Stack -->
+<h2 id="tech-stack">Tech Stack</h2>
+<table>
+  <tbody>
+    <tr>
+      <td>Primary</td>
+      <td>{data.techStack.primary.length > 0 ? data.techStack.primary.join(', ') : <span class="ps-none">None.</span>}</td>
+    </tr>
+    <tr>
+      <td>Infra</td>
+      <td>{data.techStack.infra.length > 0 ? data.techStack.infra.join(', ') : <span class="ps-none">None.</span>}</td>
+    </tr>
+    <tr>
+      <td>Libs</td>
+      <td>{data.techStack.libs.length > 0 ? data.techStack.libs.join(', ') : <span class="ps-none">None.</span>}</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- 4. Dependencies -->
+<h2 id="dependencies">Dependencies</h2>
+{data.dependencies.length === 0 ? (
+  <p class="ps-none">None.</p>
+) : (
+  <table>
+    <thead>
+      <tr>
+        <th>name</th>
+        <th>path</th>
+        <th>kind</th>
+        <th>role</th>
+      </tr>
+    </thead>
+    <tbody>
+      {data.dependencies.map(dep => (
+        <tr>
+          <td>{dep.name}</td>
+          <td><code>{dep.path}</code></td>
+          <td>{dep.kind ?? 'module'}</td>
+          <td>{dep.role}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+)}
+
+<!-- 5. Commands -->
+<h2 id="commands">Commands</h2>
+{data.commands.length === 0 ? (
+  <p class="ps-none">None.</p>
+) : (
+  <div class="ps-commands">
+    {data.commands.map(cmd => (
+      <div class="ps-command">
+        <div class="ps-command-head">
+          <span class="ps-command-id">{cmd.id}</span>
+          {cmd.verified && <span class="ps-verified">verified</span>}
+          <span class="ps-command-purpose">{cmd.purpose}</span>
+        </div>
+        <pre><code>{cmd.invocation}</code></pre>
+        {cmd.shortFlag && (
+          <p class="ps-cmd-meta"><strong>Short flag:</strong> <code>{cmd.shortFlag}</code></p>
+        )}
+        {cmd.example && (
+          <p class="ps-cmd-meta"><strong>Example:</strong> <code>{cmd.example}</code></p>
+        )}
+        {cmd.args && cmd.args.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <th>arg</th>
+                <th>required</th>
+                <th>description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cmd.args.map(arg => (
+                <tr>
+                  <td>{arg.name}</td>
+                  <td>{arg.required ? 'yes' : 'no'}</td>
+                  <td>{arg.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    ))}
+  </div>
+)}
+
+<!-- 6. Mechanisms -->
+<h2 id="mechanisms">Mechanisms</h2>
+{data.mechanisms.length === 0 ? (
+  <p class="ps-none">None.</p>
+) : (
+  <ul class="ps-mechanisms">
+    {data.mechanisms.map(mech => (
+      <li class="ps-mechanism">
+        <span class="ps-mech-claim">{mech.claim}</span>
+        {' — '}
+        <code class="ps-mech-evidence">{mech.evidence}</code>
+        {mech.invariant && <em class="ps-mech-invariant"> · {mech.invariant}</em>}
+        {mech.rationale && <span class="ps-mech-rationale"> · {mech.rationale}</span>}
+      </li>
+    ))}
+  </ul>
+)}
+
+<!-- 7. Status -->
+<h2 id="status">Status</h2>
+<div class="ps-status-row">
+  <span
+    class="ps-badge ps-stage"
+    style={`background: ${stageColors[data.status.stage] ?? 'var(--text-dim)'}22; color: ${stageColors[data.status.stage] ?? 'var(--text-dim)'}; border-color: ${stageColors[data.status.stage] ?? 'var(--text-dim)'}44;`}
+  >
+    {data.status.stage}
+  </span>
+  <span class="ps-last-commit">last commit {data.status.lastCommitAt}</span>
+</div>
+{data.status.knownIssues.length === 0 ? (
+  <p class="ps-none">No known issues.</p>
+) : (
+  <table>
+    <thead>
+      <tr>
+        <th>id</th>
+        <th>description</th>
+        <th>severity</th>
+        <th>evidence</th>
+        <th>scope</th>
+      </tr>
+    </thead>
+    <tbody>
+      {data.status.knownIssues.map(issue => (
+        <tr>
+          <td>{issue.id}</td>
+          <td>{issue.description}</td>
+          <td>
+            <span
+              class="ps-severity"
+              style={`color: ${severityColors[issue.severity] ?? 'var(--text-dim)'};`}
+            >
+              {issue.severity}
+            </span>
+          </td>
+          <td><code>{issue.evidence}</code></td>
+          <td>{issue.scope}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+)}
+
+<!-- 8. Scope -->
+<h2 id="scope">Scope</h2>
+<div class="ps-scope">
+  <div class="ps-scope-col">
+    <h3>In doc</h3>
+    {data.scope.inDoc.length === 0 ? (
+      <p class="ps-none">None.</p>
+    ) : (
+      <ul>
+        {data.scope.inDoc.map(item => <li>{item}</li>)}
+      </ul>
+    )}
+  </div>
+  <div class="ps-scope-col">
+    <h3>Out of scope</h3>
+    {data.scope.outOfScope.length === 0 ? (
+      <p class="ps-none">None.</p>
+    ) : (
+      <ul>
+        {data.scope.outOfScope.map(item => <li>{item}</li>)}
+      </ul>
+    )}
+  </div>
+</div>
+
+<!-- 9. Related -->
+<h2 id="related">Related</h2>
+{data.related.length === 0 ? (
+  <p class="ps-none">None.</p>
+) : (
+  <ul class="ps-related">
+    {data.related.map(rel => (
+      <li>
+        <a href={`/agent-docs/${rel.slug}`}>{rel.slug}</a>
+        {' — '}
+        {rel.relation}
+      </li>
+    ))}
+  </ul>
+)}
+
+<!-- 10. Provenance -->
+<div class="ps-provenance">
+  <hr />
+  <p>{data.documentedBy} · {data.documentedAt}</p>
+</div>
+
+<style>
+  /* Identity block */
+  .ps-header { margin-bottom: 0.5rem; }
+
+  .ps-identity-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.5rem 0 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .ps-tagline {
+    font-family: var(--font-sans);
+    font-size: 0.88rem;
+    color: var(--text-muted);
+  }
+
+  /* Generic badge */
+  .ps-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    text-transform: lowercase;
+  }
+
+  .ps-kind {
+    border-color: var(--border-hi);
+  }
+
+  /* Stage badge gets dynamic color via inline style */
+  .ps-stage {
+    border-width: 1px;
+    border-style: solid;
+    font-size: 0.7rem;
+  }
+
+  /* Tags row */
+  .ps-tags {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+  }
+
+  .ps-tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.18rem 0.7rem;
+    letter-spacing: 0.04em;
+  }
+
+  /* Verified badge on commands */
+  .ps-verified {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    padding: 0.14rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid rgba(45, 164, 78, 0.4);
+    background: rgba(45, 164, 78, 0.08);
+    color: #2da44e;
+  }
+
+  /* Commands */
+  .ps-commands {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .ps-command {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+  }
+
+  .ps-command-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+
+  .ps-command-id {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .ps-command-purpose {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .ps-cmd-meta {
+    font-size: 0.83rem;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem !important;
+  }
+
+  /* Mechanisms */
+  .ps-mechanisms {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .ps-mechanism {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  .ps-mechanism:last-child {
+    border-bottom: none;
+  }
+
+  .ps-mech-claim {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .ps-mech-evidence {
+    font-size: 0.78rem;
+  }
+
+  .ps-mech-invariant {
+    color: var(--text-muted);
+    font-size: 0.83rem;
+  }
+
+  .ps-mech-rationale {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+
+  /* Status row */
+  .ps-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .ps-last-commit {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+
+  .ps-severity {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  /* Scope two-column */
+  .ps-scope {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .ps-scope-col h3 {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+    margin-top: 0;
+  }
+
+  @media (max-width: 600px) {
+    .ps-scope {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+  }
+
+  /* Related */
+  .ps-related {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .ps-related li {
+    font-size: 0.88rem;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .ps-related li:last-child {
+    border-bottom: none;
+  }
+
+  /* Provenance footer */
+  .ps-provenance {
+    margin-top: 2.5rem;
+  }
+
+  .ps-provenance p {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  /* Empty state */
+  .ps-none {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-bottom: 1rem !important;
+  }
+</style>

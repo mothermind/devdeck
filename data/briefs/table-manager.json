@@ -1,0 +1,57 @@
+{
+  "project": {
+    "slug": "table-manager",
+    "path": "/Users/llnormll/PythonDev/product-db-pipeline",
+    "displayName": "Table Version Manager",
+    "tagline": "A Rich-powered CLI for versioned Postgres tables — snapshot, activate, retire without touching live reads."
+  },
+  "docStyle": {
+    "type": "cli-first",
+    "depth": "intermediate",
+    "emphasis": [
+      "invariant-by-transaction design (activation flip enforces 'one active per type' without triggers)",
+      "dry-run as a first-class mode, not an afterthought",
+      "SQL-side atomic version allocation (COALESCE(MAX(version), 0) + 1 inside the database, not Python)",
+      "schema cloning via CREATE TABLE ... (LIKE source INCLUDING ALL) + chunked bulk fill with Rich progress",
+      "Rich TUI treatment for what is fundamentally a psql-with-superpowers tool"
+    ],
+    "skip": [
+      "line-by-line Python walkthrough",
+      "docstring dumps",
+      "verbatim reproduction of --help output",
+      "any discussion of product-db-pipeline beyond what's needed to situate the table manager",
+      ".env contents or secrets"
+    ]
+  },
+  "pages": [
+    {
+      "slug": "table-manager",
+      "purpose": "Single standalone component page — cli-first showcase of the Table Version Manager CLI. Hero invocation, command catalog, mechanism deep-dives, scope/boundary note referencing DBConnector + table_versions registry."
+    }
+  ],
+  "voice": {
+    "framing": "B-agent-collaborative",
+    "narrator": "ayden-first-person",
+    "metaNotes": "allowed-where-useful"
+  },
+  "references": {
+    "similarTo": [],
+    "contrastWith": ["project1", "project2"],
+    "note": "No existing DevDeck page is a close stylistic match for a cli-first component showcase. Research should not try to mimic project1 (narrative pipeline) or project2 (interactive island). This page becomes its own cli-first template: hero invocation → command catalog → mechanism deep-dives → scope/boundary note."
+  },
+  "scopeBoundary": {
+    "primaryFiles": [
+      "src/database/TableVersionManagerCLI.md",
+      "src/database/tbl_version_manager.py"
+    ],
+    "touchpointsToLocateButNotFullyDocument": [
+      "src/database/db_connector.py (or wherever DBConnector lives) — just enough to describe the connection shape in one paragraph",
+      "the table_versions registry table — its schema origin (migration file, if discoverable) and columns"
+    ],
+    "note": "Intermediate depth requires a one-paragraph sketch of the two touchpoints above so the final page isn't amputated. Full documentation of DBConnector or the migration layer is out of scope."
+  },
+  "provisional": true,
+  "provisionalNote": "Emphasis, skip, and references not yet fully approved by operator. Research proceeding against best-reading-of-conversation brief. Operator will finalize brief after reviewing research output; a second research pass may follow if emphasis shifts materially.",
+  "createdAt": "2026-04-21T00:00:00Z",
+  "createdBy": "MotherMind"
+}

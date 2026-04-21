@@ -1,0 +1,147 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Table Version Manager
+
+slug: table-manager
+kind: cli-component
+displayName: Table Version Manager
+tagline: Rich-powered CLI for versioned Postgres tables.
+
+documentedBy: MotherMind
+documentedAt: 2026-04-21
+lastVerified: 2026-04-21
+sourceRepo: /Users/llnormll/PythonDev/product-db-pipeline
+sourcePath: src/database/tbl_version_manager.py
+
+tags:
+  - postgresql
+  - cli
+  - versioning
+  - python
+
+techStack:
+  primary:
+    - Python
+    - argparse
+    - SQLAlchemy
+  infra:
+    - AWS RDS PostgreSQL
+  libs:
+    - rich
+    - pandas
+    - python-dotenv
+
+dependencies:
+  - name: DBConnector
+    path: src/database/db_connector.py
+    kind: module
+    role: Provides the postgresql_engine used for every query. As of 2026-04-21 refactor, loads DATABASE_URL from variables/.env via python-dotenv.
+  - name: table_versions
+    kind: postgres-table
+    role: Version registry tracking every created snapshot. Columns inferred from usage are table_type, version, table_name, is_active, created_at, row_count. No DDL migration file exists in the repo.
+
+commands:
+  - id: list
+    invocation: python src/database/tbl_version_manager.py --list
+    shortFlag: -l
+    example: python src/database/tbl_version_manager.py --list --type product_raw
+    purpose: Print Rich table of all versions with ACTIVE badges; optionally filter by table type.
+    verified: true
+    args:
+      - name: --type
+        required: false
+        description: Filter to a single table type (e.g. product_raw).
+  - id: activate
+    invocation: python src/database/tbl_version_manager.py --activate <table_type> <version>
+    shortFlag: -a
+    example: python src/database/tbl_version_manager.py --activate product_raw 7
+    purpose: Atomically deactivate all sibling versions and activate the specified one inside a single transaction.
+    verified: true
+    args:
+      - name: table_type
+        required: true
+        description: Logical table type (e.g. product_raw).
+      - name: version
+        required: true
+        description: Version number to activate.
+  - id: cleanup
+    invocation: python src/database/tbl_version_manager.py --cleanup <table_type> [keep_count]
+    shortFlag: -c
+    example: python src/database/tbl_version_manager.py --cleanup product_raw 3
+    purpose: Drop inactive versions beyond the keep_count most recent (default 3). The active version is always preserved.
+    verified: true
+    args:
+      - name: table_type
+        required: true
+        description: Logical table type.
+      - name: keep_count
+        required: false
+        description: Number of recent versions to retain. Defaults to 3.
+  - id: cleanup-dry-run
+    invocation: python src/database/tbl_version_manager.py --cleanup <table_type> [keep_count] --dry-run
+    shortFlag: -c -n
+    example: python src/database/tbl_version_manager.py --cleanup product_raw 5 --dry-run
+    purpose: Preview DROPs and DELETEs without executing them. Same code path as cleanup; Rich panel shifts to dim style to visually distinguish no-op output.
+    verified: true
+
+mechanisms:
+  - id: transactional-activation
+    claim: activate_version wraps deactivate-all then activate-one in a single begin() transaction.
+    invariant: Exactly one version is active per table type; the transaction boundary enforces it without triggers or constraints.
+    evidence: src/database/tbl_version_manager.py:106-119
+    rationale: No moment exists where zero or two versions are active; a partial write cannot violate the invariant.
+  - id: db-side-version-allocation
+    claim: The next version number is allocated inside SQL via COALESCE(MAX(version), 0) + 1.
+    invariant: Race-safe version numbering when multiple pipeline runs attempt creation simultaneously.
+    evidence: src/database/tbl_version_manager.py:27
+    rationale: The database serializes the MAX() read rather than relying on Python-side coordination.
+  - id: schema-cloning
+    claim: New versioned tables are created via CREATE TABLE new (LIKE source INCLUDING ALL).
+    invariant: All indexes, constraints, and column types are preserved exactly from the source table.
+    evidence: src/database/tbl_version_manager.py:94
+    rationale: Higher fidelity than SELECT INTO or pandas to_sql type inference. A DataFrame-only path exists as a fallback when no source table is provided.
+  - id: dry-run-first-class
+    claim: --dry-run is a first-class flag on --cleanup, routed through the same cleanup_old_versions method via a dry_run boolean parameter.
+    evidence: src/database/tbl_version_manager.py:165-197
+    rationale: Single code path, no duplicated logic. Visual distinction is a Rich panel style shift (dim in dry-run mode).
+  - id: chunked-bulk-insert
+    claim: Bulk inserts use pandas to_sql in 500-row chunks with a Rich progress bar (SpinnerColumn + BarColumn + MofNCompleteColumn).
+    invariant: Memory-safe loads of large DataFrames with live row-level progress feedback.
+    evidence: src/database/tbl_version_manager.py:54-70
+  - id: cleanup-active-protection
+    claim: cleanup_old_versions filters WHERE is_active = FALSE before applying OFFSET :keep in its candidate-selection SQL.
+    invariant: The active version is never in the delete candidate set, regardless of how old it is.
+    evidence: src/database/tbl_version_manager.py:168-176
+
+status:
+  stage: stable
+  lastCommitAt: 2026-02-20
+  knownIssues:
+    - id: silent-fallback
+      description: get_active_table returns the raw table type string when no active version exists for that type; downstream callers may query a legacy non-versioned table without knowing.
+      severity: medium
+      evidence: src/database/tbl_version_manager.py:103
+      scope: this-doc
+    - id: hardcoded-credentials-git-history
+      description: db_connector.py hardcoded RDS creds were refactored to dotenv on 2026-04-21, but the string remains in git history. Three other files in the repo still reference it in source. RDS password rotation on AWS is the only complete fix.
+      severity: high
+      evidence: pipelines/product_analysis_processor.py:33, experiments/pricing.py:159, pipelines/feature_engineering_pipeline.py:464
+      scope: dependency-not-this-doc
+
+scope:
+  inDoc:
+    - Command reference for list, activate, cleanup, and dry-run cleanup.
+    - Mechanism internals behind activation, version allocation, schema cloning, bulk insert, and cleanup safety.
+    - Dependency sketch covering DBConnector and the table_versions registry.
+  outOfScope:
+    - DBConnector internal implementation.
+    - table_versions registry DDL — inferable from usage but no migration file exists in the repo.
+    - Broader product-db-pipeline architecture.
+    - Programmatic Python API (create_versioned_table, get_active_table) — CLI-only documentation.
+
+related: []
+---
+
+import PageSchema from '../../components/agent-docs/PageSchema.astro';
+
+<PageSchema data={frontmatter} />
