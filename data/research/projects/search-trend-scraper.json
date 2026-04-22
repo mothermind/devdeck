@@ -1,0 +1,169 @@
+{
+  "projectSlug": "search-trend-scraper",
+  "projectPath": "/Users/llnormll/PythonDev/search-trend-scraper-async",
+  "briefPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/search-trend-scraper.json",
+  "generatedAt": "2026-04-21T00:00:00+09:00",
+  "findings": {
+    "purpose": "A two-stage Python ETL pipeline that scrapes brand search trends from Naver Datalab and Keyword Tool APIs, then joins them with product review data from PostgreSQL to produce proportional weekly search-trend metrics per product group.",
+    "techStack": {
+      "primary": ["Python 3.11+"],
+      "infra": ["AWS RDS PostgreSQL (read + write)", "Naver Datalab API", "Naver Keyword Tool API"],
+      "keyLibs": [
+        "sqlalchemy>=2.0.46 — ORM + raw SQL for all DB ops",
+        "psycopg2-binary==2.9.9 — PostgreSQL driver",
+        "pandas — in-memory ETL, merges, proportional math",
+        "rich>=14.3.2 — progress bars and console output for both stages",
+        "requests — Naver Keyword Tool API calls",
+        "dotenv>=0.9.9 — DATABASE_URL loading",
+        "certifi — SSL context fix for Naver Datalab urllib calls",
+        "pytrends>=4.9.2 — listed in pyproject.toml but not used in any source file (dead dependency)"
+      ]
+    },
+    "architecture": "Two independent CLI entry points. Stage 1 (scraper.py) connects to PostgreSQL to load the active brand table, then batches brands in groups of 5 through two Naver APIs: Datalab (relative search ratios) and Keyword Tool (absolute monthly volume). It combines them to estimate absolute weekly search counts and checkpoints CSVs every 100 brands to data/YYMMDD/. Stage 2 (main.py) reads the *_final.csv from a user-supplied date folder, loads product_review and product_raw tables from PostgreSQL via utils/analysis.py::DataTransformer, computes a historical-proportion-weighted search trend per product group, then writes the result as a new versioned PostgreSQL table (e.g. product_search_trend_003) via utils/tbl_version_manager.py::TableVersionManager. A third entry point, utils/tbl_version_manager.py run as a module, is a pure table-management CLI with list/activate/cleanup subcommands. All database handles are provided by utils/utility_functions.py::DatabaseHandler (SQLAlchemy engine, context-managed connections, read helpers). The utils/ package is importable as a module; __init__.py is empty.",
+    "keyCommands": [
+      {
+        "cmd": "uv run python scraper.py",
+        "purpose": "Stage 1 — scrapes Naver Datalab + Keyword Tool APIs for all brands, writes CSVs to data/YYMMDD/. No flags; date directory is auto-derived from today.",
+        "verified": true
+      },
+      {
+        "cmd": "uv run python main.py --target 260203",
+        "purpose": "Stage 2 — runs proportional analysis on scraped CSV for the specified date folder and creates a new versioned product_search_trend_NNN table in PostgreSQL.",
+        "verified": true
+      },
+      {
+        "cmd": "uv run python main.py -t 260203",
+        "purpose": "Shorthand form of --target.",
+        "verified": true
+      },
+      {
+        "cmd": "uv run python -m utils.tbl_version_manager --list",
+        "purpose": "Lists all versioned table types with row counts and active flags.",
+        "verified": true
+      },
+      {
+        "cmd": "uv run python -m utils.tbl_version_manager -l -t product_raw",
+        "purpose": "Lists versions filtered to a single table type.",
+        "verified": true
+      },
+      {
+        "cmd": "uv run python -m utils.tbl_version_manager --activate product_raw 8",
+        "purpose": "Promotes a specific version of a table type to active, demoting the current active.",
+        "verified": true
+      },
+      {
+        "cmd": "uv run python -m utils.tbl_version_manager --cleanup product_raw",
+        "purpose": "Drops all but the 3 most recent inactive versions of a table type (plus the active version). Keep count is overridable: --cleanup product_raw 5.",
+        "verified": true
+      }
+    ],
+    "notableDecisions": [
+      {
+        "decision": "Proportional search trend uses a fixed historical proportion window (2023-01-01 to 2025-04-30) rather than rolling weekly proportions.",
+        "rationale": "Review data after 2025-04-30 is incomplete due to site-level blocking of the review source. Using a fixed window avoids biasing recent search trend estimates with sparse review data.",
+        "evidence": "utils/analysis.py:13-35"
+      },
+      {
+        "decision": "Naver Datalab batches brands in groups of 5 with a 2-second inter-call sleep and 5-second batch sleep.",
+        "rationale": "Naver Datalab API limits keyword groups to 5 per request. Sleeps exist to avoid rate-limit errors across 800+ brands (~1-2 hour total runtime).",
+        "evidence": "scraper.py:199-230"
+      },
+      {
+        "decision": "CSV checkpointing every 100 brands in scraper.py.",
+        "rationale": "Guards against data loss in the event of a mid-run network or API failure. main.py auto-selects *_final.csv or falls back to the largest file.",
+        "evidence": "scraper.py:233-236, main.py:31-37"
+      },
+      {
+        "decision": "create_versioned_table always begins with DROP TABLE IF EXISTS before df.to_sql.",
+        "rationale": "Provides idempotency on retried runs — a previous failed attempt that partially created the table is silently cleared.",
+        "evidence": "utils/tbl_version_manager.py:48-49"
+      },
+      {
+        "decision": "TableVersionManager records the version entry and deactivates prior versions in separate engine.begin() transactions.",
+        "rationale": "No explicit rationale in code. Consequence: if the INSERT into table_versions succeeds but is_active deactivation fails (or vice versa), the metadata registry can have two active rows for the same table type.",
+        "evidence": "utils/tbl_version_manager.py:65-87"
+      }
+    ],
+    "currentStatus": "stable — last commit 2026-02-03 (commit a2f1fec). Three commits total; development appears complete for current use case with no active branches or open changes.",
+    "entryPoints": [
+      "scraper.py",
+      "main.py",
+      "utils/tbl_version_manager.py"
+    ],
+    "dataFlow": "scraper.py reads brand names from the active brand_XXX PostgreSQL table → batches 5 brands per Naver Datalab API call (returns 0-100 relative ratios per week) → fetches monthly keyword volumes for those brands from Naver Keyword Tool API → divides monthly volume by latest ratio to derive a per-unit count, then multiplies all weekly ratios to estimate abs_count — outputs to data/YYMMDD/*_final.csv. main.py reads that CSV + product_review_XXX (weekly group review counts) + product_raw_XXX (product→group→brand mappings) from PostgreSQL → DataTransformer filters reviews to the reliable period, computes each group's historical average share of its brand's total reviews, then cross-joins that proportion with every week's abs_count → result written as product_search_trend_NNN in PostgreSQL, registered in table_versions, and marked active."
+  },
+  "scopeBoundary": "utils/utility_functions.py::DatabaseHandler is a shared DB connector used by scraper.py, main.py, and tbl_version_manager. It owns connection lifecycle (SQLAlchemy engine, context-managed get_connection()), raw table reads (read_table_from_postgres, read_query), schema introspection, and a batch upsert helper. DatabaseHandler is a dependency of all three CLI entry points but is not itself a CLI tool and should not be documented as a primary surface — it is plumbing. Similarly, the table_versions PostgreSQL table is an infrastructure contract shared across all entry points; its DDL is documented in README.md and is a pre-condition for all commands, but managing that table is out of scope for the agent-docs page body.",
+  "perPage": [
+    {
+      "pageSlug": "search-trend-scraper",
+      "contentPointers": [
+        {
+          "claim": "kind should be 'pipeline' — project has two stage CLIs plus a management CLI, not a single tool",
+          "evidence": "README.md:9-19 (two-stage diagram), main.py:74-87 (argparse), scraper.py:245 (__main__)"
+        },
+        {
+          "claim": "tagline candidate: 'Two-stage ETL pipeline — Naver API scraping to proportional search-trend metrics in PostgreSQL'",
+          "evidence": "README.md:3-6"
+        },
+        {
+          "claim": "Three CLI commands: scraper.py (no flags), main.py --target/-t, utils.tbl_version_manager --list/--activate/--cleanup",
+          "evidence": "scraper.py:245, main.py:75-87, utils/tbl_version_manager.py:187-264 — all verified via --help"
+        },
+        {
+          "claim": "Five mechanisms worth surfacing: (1) fixed reliable-period proportions, (2) Naver Datalab 5-brand batch + rate-limit sleeps, (3) CSV checkpointing every 100 brands, (4) idempotent DROP before to_sql, (5) split-transaction activation gap",
+          "evidence": "utils/analysis.py:13-35, scraper.py:199-236, utils/tbl_version_manager.py:48-87"
+        },
+        {
+          "claim": "Dependencies: utils/analysis.py (DataTransformer), utils/utility_functions.py (DatabaseHandler), utils/tbl_version_manager.py (TableVersionManager), postgres table_versions (metadata registry), Naver Datalab API, Naver Keyword Tool API, .env (DATABASE_URL)",
+          "evidence": "scraper.py:5-6, main.py:3-5, utils/analysis.py:3-4"
+        },
+        {
+          "claim": "Known issues: hardcoded API credentials in scraper.py, split-transaction activation gap in tbl_version_manager, pytrends dead dependency",
+          "evidence": "scraper.py:22-23 and 94-97 (hardcoded creds), utils/tbl_version_manager.py:65-87 (split transactions), pyproject.toml:11 (pytrends listed, no import found)"
+        },
+        {
+          "claim": "status.stage = stable; lastCommitAt = 2026-02-03",
+          "evidence": "git log: a2f1fec 2026-02-03 14:29:17 +0900"
+        },
+        {
+          "claim": "related page: table-manager (tbl_version_manager.py is a component of this pipeline and also documented as its own agent-docs page)",
+          "evidence": "data/research/projects/table-manager.json exists; utils/tbl_version_manager.py is shared"
+        }
+      ],
+      "suggestedSections": [
+        "Identity — kind: pipeline, displayName: Search Trend Scraper, tagline anchored to Naver ETL → PostgreSQL",
+        "Commands — 3 entries: scraper, main, tbl_version_manager (with all subcommands as separate command entries)",
+        "Mechanisms — 5 entries: reliable-period window, Naver batch+sleep, CSV checkpointing, idempotent DROP, split-transaction gap",
+        "Dependencies — 7 entries: DataTransformer, DatabaseHandler, TableVersionManager, table_versions table, Naver Datalab API, Naver Keyword Tool API, DATABASE_URL env",
+        "Status — stable + 2026-02-03, knownIssues: hardcoded creds (high), split-transaction gap (medium), pytrends dead dep (low)",
+        "Scope — inDoc covers the ETL pipeline and version management CLI; outOfScope covers DatabaseHandler internals, table_versions DDL setup, and Naver API provisioning"
+      ]
+    }
+  ],
+  "filesRead": [
+    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/search-trend-scraper.json",
+    "/Users/llnormll/PythonDev/search-trend-scraper-async/README.md",
+    "/Users/llnormll/PythonDev/search-trend-scraper-async/pyproject.toml",
+    "/Users/llnormll/PythonDev/search-trend-scraper-async/scraper.py",
+    "/Users/llnormll/PythonDev/search-trend-scraper-async/main.py",
+    "/Users/llnormll/PythonDev/search-trend-scraper-async/utils/tbl_version_manager.py",
+    "/Users/llnormll/PythonDev/search-trend-scraper-async/utils/utility_functions.py",
+    "/Users/llnormll/PythonDev/search-trend-scraper-async/utils/analysis.py",
+    "/Users/llnormll/PythonDev/search-trend-scraper-async/.gitignore",
+    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/docs/AGENT_DOCS_SCHEMA.md"
+  ],
+  "gapsFromBrief": [
+    "Brief emphasis[] is empty — no operator-specified emphasis. Inferred emphasis from schema requirements and project shape. A follow-up brief revision with explicit emphasis fields would improve targeting.",
+    "No tagline was provided in the brief (tagline: null). Candidate surfaced in contentPointers; Ayden should confirm or revise before content-agent runs.",
+    "Naver API provisioning details (how credentials were obtained, rate limits, quota) are not documented in the repo. If the agent-docs page needs a 'Setup' or 'Prerequisites' section, those details must come from Ayden directly.",
+    "The analysis.py file header comment says '# analysis_new.py' — suggests it may have replaced an earlier version. No older version found in git history (all three commits are 'Save' or 'Initial commit'). Cannot confirm whether analysis logic changed significantly; likely irrelevant but flagged.",
+    "pytrends is listed in pyproject.toml but has no import in any source file. Cannot determine if it was a planned feature or a leftover. Ayden should confirm before the dependency is documented as active."
+  ],
+  "recommendations": [
+    "SECURITY / HIGH — Naver Datalab client_id and client_secret are hardcoded as string literals in SearchTrendScraper.__init__ (scraper.py:22-23). Naver Keyword Tool API_KEY, SECRET_KEY, and CUSTOMER_ID are hardcoded in get_rel_keyword (scraper.py:94-97). These are committed to git history. All five values should be moved to .env alongside DATABASE_URL and loaded via dotenv. Rotate the Keyword Tool keys immediately if the repo is or will be pushed to a remote.",
+    "CORRECTNESS / MEDIUM — create_versioned_table deactivates all prior versions in one engine.begin() block, then inserts the new version record in a separate engine.begin() block (utils/tbl_version_manager.py:65-87). If the process crashes between these two transactions, the table_versions registry can have zero active rows for the table type, causing get_active_table() to silently fall back to the bare table_type name (line 112). This should be wrapped in a single transaction.",
+    "CORRECTNESS / MEDIUM — cleanup_old_versions drops physical tables and deletes version records inside the same engine.begin() transaction but iterates with a try/except per row (utils/tbl_version_manager.py:175-184). A DROP failure on one row is swallowed and the loop continues, potentially leaving the registry and physical tables out of sync.",
+    "CORRECTNESS / LOW — read_table_from_postgres constructs a raw SQL query via f-string interpolation on table_name (utility_functions.py:33). There is a string-validity guard (must be non-empty string) but no whitelist or identifier quoting. If table_name ever originates from user input rather than TableVersionManager, this is a SQL injection vector.",
+    "DEPENDENCY / LOW — pytrends>=4.9.2 is listed in pyproject.toml but is not imported in any source file. It adds install weight and version-constraint surface area for no apparent benefit. Remove unless planned use is imminent."
+  ]
+}

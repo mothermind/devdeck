@@ -1,0 +1,102 @@
+{
+  "slug": "search-trend-scraper",
+  "mdxPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/src/pages/agent-docs/search-trend-scraper.mdx",
+  "validatedAt": "2026-04-22T00:44:58Z",
+  "passed": true,
+  "checks": {
+    "schemaConformance": {
+      "pass": true,
+      "issues": [],
+      "notes": [
+        "All required frontmatter fields present (IDENTITY, PROVENANCE, TAXONOMY, DEPENDENCIES, COMMANDS, MECHANISMS, STATUS, SCOPE, RELATED).",
+        "kind='pipeline', status.stage='stable', severities (high/medium/low) all within enum.",
+        "slug 'search-trend-scraper' matches filename search-trend-scraper.mdx.",
+        "Body is exactly the 'import PageSchema + <PageSchema data={frontmatter} />' pattern — no extra prose.",
+        "sourceRepo /Users/llnormll/PythonDev/search-trend-scraper-async exists; sourcePath scraper.py exists."
+      ]
+    },
+    "evidenceResolution": {
+      "pass": true,
+      "totalCites": 10,
+      "issues": [],
+      "notes": [
+        "utils/analysis.py:13-35 — RELIABLE_PERIOD constants + proportions logic. Valid.",
+        "scraper.py:199-230 — batching + sleep(2)/sleep(5). Valid.",
+        "scraper.py:233-236 — CSV checkpoint save_interval. Valid.",
+        "main.py:31-37 — *_final.csv preference + largest-file fallback. Valid.",
+        "utils/tbl_version_manager.py:48-49 — DROP TABLE IF EXISTS before to_sql. Valid.",
+        "utils/tbl_version_manager.py:65-87 — split engine.begin() for deactivate + insert. Valid.",
+        "utils/tbl_version_manager.py:175-184 — try/except per-row in cleanup loop. Valid.",
+        "scraper.py:22-23 — hardcoded client_id/client_secret. Valid.",
+        "scraper.py:94-97 — hardcoded API_KEY/SECRET_KEY/CUSTOMER_ID. Line 94 is BASE_URL (not a secret); actual secrets are 95-97. Range includes one non-secret line but is not wrong — kept as-is.",
+        "pyproject.toml:11 — pytrends>=4.9.2 dependency line. Valid."
+      ]
+    },
+    "commandVerification": {
+      "pass": true,
+      "verified": 4,
+      "flagged": 1,
+      "issues": [
+        {
+          "command": "scraper",
+          "detail": "scraper.py does not implement --help; AST parse of scraper.py succeeded (no syntax error), but the command cannot be runtime-verified without hitting Naver APIs and the Postgres DB. Per spec, downgraded verified: true → false. File is syntactically valid; the invocation string itself is correct.",
+          "action": "in-place fix applied"
+        }
+      ],
+      "notes": [
+        "main.py --help: verified (argparse --target shown).",
+        "python -m utils.tbl_version_manager --help: verified (argparse shows --list, --activate, --cleanup + short flags and examples matching MDX commands).",
+        "tbl-list, tbl-activate, tbl-cleanup inherit verification from the module's --help output — argparse confirms all three subcommands exist and accept the documented flag shapes.",
+        "main-analyze verified via main.py --help.",
+        "No mutating command was executed (--activate / --cleanup). AST parse of tbl_version_manager.py passed."
+      ]
+    },
+    "crossReferenceIntegrity": {
+      "pass": true,
+      "issues": [],
+      "notes": [
+        "related[0].slug 'table-manager' resolves to src/pages/agent-docs/table-manager.mdx — exists."
+      ]
+    },
+    "freshness": {
+      "pass": true,
+      "ageDays": 0,
+      "notes": [
+        "lastVerified 2026-04-22 vs today 2026-04-21 — document is dated one day in the future, likely a KST/UTC skew. Not stale (well under 90-day threshold). Note for operator: consider standardizing on a single timezone for documentedAt/lastVerified."
+      ]
+    }
+  },
+  "inPlaceFixesApplied": [
+    {
+      "field": "commands[0].verified (scraper)",
+      "before": "true",
+      "after": "false",
+      "reason": "scraper.py has no --help handler, so the invocation cannot be runtime-verified without mutating external systems (Naver APIs + Postgres writes). AST parse succeeded, confirming the file is syntactically valid, but per spec this is environment-limited verification and verified: true is not justified."
+    }
+  ],
+  "issuesFlagged": [
+    {
+      "severity": "note",
+      "check": "commandVerification",
+      "detail": "scraper command downgraded to verified: false. To re-establish verified: true, add a --dry-run flag to scraper.py or otherwise enable a side-effect-free verification path.",
+      "location": "src/pages/agent-docs/search-trend-scraper.mdx:69-70 (commands[0])"
+    },
+    {
+      "severity": "note",
+      "check": "evidenceResolution",
+      "detail": "knownIssues[0] (hardcoded-naver-credentials) cites scraper.py:94-97 but line 94 is BASE_URL (not a secret). The actual credentials are on lines 95-97. Range is technically correct-inclusive but slightly wider than minimal. Not auto-fixed — this is evidence framing, not an off-by-one on cited content.",
+      "location": "src/pages/agent-docs/search-trend-scraper.mdx:148 (knownIssues[0].evidence)"
+    },
+    {
+      "severity": "note",
+      "check": "freshness",
+      "detail": "lastVerified (2026-04-22) is one day ahead of today (2026-04-21). Likely KST vs UTC author time. Harmless; worth standardizing author timezone going forward.",
+      "location": "src/pages/agent-docs/search-trend-scraper.mdx:12 (lastVerified)"
+    }
+  ],
+  "recommendations": [
+    "Ready to ship. One in-place fix applied (scraper verified: false), three low-severity notes logged for future refinement — none block publication.",
+    "If the scraper CLI gains a --dry-run or --check flag in a future pass, re-verify and flip commands[0].verified back to true.",
+    "Consider tightening knownIssues[0] evidence to scraper.py:95-97 in a future research pass for cleaner citation."
+  ]
+}

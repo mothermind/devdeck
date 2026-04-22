@@ -1,224 +1,172 @@
 ---
 name: document-project
-description: Document a project for DevDeck portfolio (Ayden Choi's data-engineering showcase). Full pipeline — scope brief → research → draft → review → publish → validate → ship. Six phases, two human editorial gates, B-framing (agent-collaborative provenance is explicit). Triggers, "document this project", "add X to devdeck", "write devdeck page for Y", "document {project} for devdeck".
+description: Document a project (or single component) for DevDeck as a schema-conformant agent-docs page. Full pipeline from minimal operator input to shipped commit. Triggers, "document this project", "add X to devdeck", "write agent-docs for Y".
 ---
 
-# Document Project — DevDeck Pipeline
+# Document Project — DevDeck Pipeline (v2)
 
-Six phases across two human conversations (orchestrator + operator) plus several agent dispatches. The operator is Ayden Choi. The orchestrator is the invoking session — typically MotherMind.
+## Purpose
 
-## B-framing (baked-in minimums)
+DevDeck is a portfolio of **structured, agent-consumable project documentation**. Its primary readers are MotherMind and the subagents it spawns. Ayden is a secondary reader who uses the same surface for personal quick-reference.
 
-DevDeck operates in B-mode: agent-collaborative provenance is explicit but not forced. Every generated page must:
+This skill produces a new page at `/agent-docs/{slug}` conformant to `docs/AGENT_DOCS_SCHEMA.md`. The page ships as both rendered HTML (for human skim) and JSON endpoints (for agent consumption — `/api/docs/{slug}.json` and `/api/docs/index.json`).
 
-- Include `documentedBy: "MotherMind"` and `documentedAt: "YYYY-MM-DD"` in its frontmatter
-- Render a footer credit line: "Docs maintained by MotherMind"
-- Preserve Ayden's first-person voice for the project narrative — NOT MotherMind-as-narrator
+**This skill is NOT for:**
+- Writing narrative/personal project stories — the agent-docs surface is structured data, not prose
+- Updating pages under `/project1/*`, `/project2/*`, `/cheatsheet/*` — those live outside the agent-docs schema
+- The B-framing About page (separate task)
 
-Meta-notes about agent-drafting are allowed in prose where they add signal. They are NOT required on every page and should never crowd the project's own story.
+---
 
-## Arguments
+## Operator input — minimal
 
 ```
-/document-project <project-slug>            operate on an opted-in project from data/projects/manifest.json
-/document-project --path=$HOME/WorkSpace/X  operate on a raw path (for first-time additions — adds to manifest in Phase 0)
-/document-project --resume=<slug>           resume a run that stopped mid-pipeline (reads prior brief + research)
+/document-project --path=<absolute path to project or file> [--component=<component-name>]
 ```
 
-If no args are passed, orchestrator asks the operator which project to document.
+- `--path` (required): absolute path. If it's a directory, the whole project is scoped. If it's a file or points at a specific module, that's a component-scoped run.
+- `--component` (optional): explicit component label when the path is ambiguous (e.g. project root, but you want one subsystem documented).
+
+**No brief conversation.** No emphasis / depth / voice questions. The orchestrator infers scope from the path and runs the pipeline.
+
+Slug is auto-generated from the path basename (or component name), converted to kebab-case. Orchestrator may override if the slug is a collision or unclear — that's the only operator consultation before research.
 
 ---
 
-## Phase 0 — Scope brief conversation (operator-facing)
+## Pipeline
 
-The orchestrator converses with the operator to produce a `doc-brief.json`. This is a human editorial gate — do not proceed to Phase 1 without the operator's explicit approval of the brief.
+```
+Phase 0  Scope detection                        [MotherMind direct]
+         ├── infer scope (file → component; directory → project)
+         ├── generate slug; confirm with operator ONLY if ambiguous
+         └── write data/briefs/{slug}.json (minimal — path, slug, scope, kind)
 
-Questions to resolve in conversation:
+Phase 1  Research                               [devdeck-research-agent]
+         → data/research/projects/{slug}.json
+         (scope respected; exploratory since the brief is minimal)
 
-1. **What's the project?** Confirm slug, path, display name, one-line tagline.
-2. **What's the doc style?** Pick ONE: `cli-first` | `architecture-first` | `narrative` | `showcase` | `balanced`. Discuss with reasoning — which fits THIS project?
-3. **What's the depth?** `surface` | `intermediate` | `exhaustive`. Default lean: surface or intermediate; exhaustive is rare and expensive.
-4. **What's the emphasis?** 2-5 things to highlight. Specific.
-5. **What to skip?** Things not worth documenting for this portfolio's audience.
-6. **How many pages?** Overview-only (1 page) vs multi-page (e.g. project landing + 2-3 sub-topics). Most projects = 1 page.
-7. **Existing DevDeck pages to resemble / differ from?** For stylistic consistency or deliberate contrast. Reference `src/pages/project1/`, `src/pages/project2/`, etc.
+Phase 2  Schema fill                            [devdeck-content-agent]
+         → src/pages/agent-docs/{slug}.mdx
+         deterministic mapping from research to schema; no creative writing
 
-Write the brief to:
-`$HOME/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/{project-slug}.json`
+Phase 3  Validate                               [devdeck-validator-agent]
+         → data/validation/{slug}-{timestamp}.json
+         schema conformance + evidence resolution + command verification
+         trivial issues auto-fixed in place
+         non-trivial issues → halt pipeline, surface to operator
 
-Schema:
+Phase 4  Integrate                              [devdeck-agent]
+         ├── update src/components/Sidebar.astro ("Agent Docs" section)
+         ├── update src/components/Header.astro (PAGES array)
+         ├── npm run build — must pass clean
+         └── report: files touched + build status
 
-```json
-{
-  "project": {
-    "slug": "string",
-    "path": "string (absolute)",
-    "displayName": "string",
-    "tagline": "string (one line)"
-  },
-  "docStyle": {
-    "type": "cli-first | architecture-first | narrative | showcase | balanced",
-    "depth": "surface | intermediate | exhaustive",
-    "emphasis": ["array of specific things to highlight"],
-    "skip": ["array of specific things to omit"]
-  },
-  "pages": [
-    { "slug": "string", "purpose": "string" }
-  ],
-  "voice": {
-    "framing": "B-agent-collaborative",
-    "narrator": "ayden-first-person",
-    "metaNotes": "allowed-where-useful"
-  },
-  "references": {
-    "similarTo": ["existing page slugs to calibrate against"],
-    "contrastWith": ["existing page slugs to deliberately differ from"]
-  },
-  "createdAt": "ISO-8601",
-  "createdBy": "MotherMind"
-}
+Phase 5  REVIEW                                 [HUMAN EDITORIAL GATE]
+         Orchestrator presents:
+         ├── rendered page URL (local dev or deployed preview)
+         ├── /api/docs/{slug}.json output (the agent contract)
+         └── validation report summary
+         Operator approves OR requests revisions.
+         Revisions loop back to Phase 2 with explicit feedback.
+
+Phase 6  Ship                                   [devdeck-agent]
+         ├── git add — explicit file list, NEVER -A or .
+         ├── commit with Co-Authored-By: MotherMind <mothermind@mother.dev>
+         └── git push origin main
+         Vercel auto-deploys.
 ```
 
-Show the brief to the operator. Iterate until approved. Only then proceed to Phase 1.
+**Single human gate** — Phase 5 only. The brief conversation of the v1 skill is gone; research + content + validation produce a complete draft before the operator is pulled in.
 
 ---
 
-## Phase 1 — Research (agent dispatch)
+## Schema contract
 
-Dispatch `devdeck-research-agent` with:
-- Target project path (from `brief.project.path`)
-- Doc brief path
+Every page produced by this skill MUST conform to `docs/AGENT_DOCS_SCHEMA.md` (current version: see header of that file).
 
-The agent reads the project scoped to the brief (respecting `docStyle.skip` and `docStyle.depth`), writes output to `data/research/projects/{slug}.json`.
+The schema governs:
+- Required frontmatter fields (identity, provenance, taxonomy, dependencies, commands, mechanisms, status, scope, related)
+- Body convention (exactly 3 lines: `import PageSchema … + <PageSchema data={frontmatter} />`)
+- JSON endpoint shape (per-page + corpus index)
 
-Wait for the agent's report. If gaps are flagged in `gapsFromBrief`, surface them to the operator — the operator may need to provide direct context the repo can't reveal (e.g. "why did I pick Postgres" is often in Ayden's head, not in the code).
+If the schema evolves, validate existing pages — no silent backwards-compatibility shims.
 
 ---
 
-## Phase 2 — Draft (orchestrator writes directly in MVP)
+## Voice
 
-For MVP, the orchestrator drafts content directly. Future: graduate to `devdeck-content-agent` if voice calibration becomes a bottleneck.
+Agent-docs pages are structured data. The voice of the content is:
 
-Steps:
+- **Third-person, factual, declarative.** "The activation flip wraps two UPDATEs in one transaction." NOT "I designed the activation to..."
+- **Terse.** Research already produced claims; the page repeats them verbatim, doesn't embellish.
+- **No marketing.** `tagline` is one factual sentence. No "blazingly fast" or "powerful".
+- **No narrative.** No "why I built this", no "the journey from X to Y". Save narrative for the About page (separate task).
 
-1. Read the brief + research JSON.
-2. Read `docs/STYLE_GUIDE.md` for token + component patterns.
-3. Read 1-2 existing project pages (`src/pages/project1/` or `src/pages/project2/`) to calibrate voice + MDX structure.
-4. Draft each page in MDX. Write to a working location:
-   `data/drafts/{project-slug}/{page-slug}.mdx`
+The body MDX is always:
 
-Frontmatter every page with at minimum:
+```
+import PageSchema from '../../components/agent-docs/PageSchema.astro';
 
-```yaml
----
-title: "..."
-documentedBy: "MotherMind"
-documentedAt: "YYYY-MM-DD"
-layout: "..."  # match existing project pages
----
+<PageSchema data={frontmatter} />
 ```
 
-Voice: Ayden first-person for the project narrative. B-framing meta-notes allowed where useful, not required.
+Don't add prose sections. Don't add extra components. If something interesting isn't expressible in the schema, flag it in the validation report — don't shoehorn it into the body.
 
 ---
 
-## Phase 3 — Review (operator-facing)
+## Provenance
 
-Surface the draft(s) to the operator. Walk through:
+Every page carries (in frontmatter, not rendered as footer credit):
+- `documentedBy: "MotherMind"` (or whoever orchestrated)
+- `documentedAt: <ISO date of first generation>`
+- `lastVerified: <ISO date of most recent research + validation pass>`
 
-- **Voice alignment** — does this sound like Ayden, not like AI-generic?
-- **Coverage** — all `brief.pages[]` addressed?
-- **Style guide adherence** — tokens + components match STYLE_GUIDE?
-- **Meta-note placement** — appropriate signal vs. over-the-top gimmick?
-- **Technical accuracy** — commands, paths, claims all correct?
-
-Iterate until the operator approves. Iteration is orchestrator ↔ operator; no agent re-dispatch needed in MVP.
-
-This is the second human editorial gate. Do not proceed to Phase 4 without explicit approval.
+The B-framing is metadata for agents that care about provenance; it doesn't crowd the human view.
 
 ---
 
-## Phase 4 — Publish (agent dispatch)
+## Constraints
 
-Dispatch `devdeck-agent` (general Astro specialist) to integrate the approved draft:
-
-1. Move draft from `data/drafts/{slug}/` to the Astro routes under `src/pages/{slug}/` (check existing pages for the routing convention — likely `src/pages/{slug}/index.mdx` or similar)
-2. Update navigation (Sidebar component, Header dropdown, or TOC) if the page needs to appear there
-3. Update dashboard entry if the project gets a dashboard card
-4. Add the project to `data/projects/manifest.json` if not already there
-5. Run `npm run build` — must pass clean
-6. Report: files touched + build status
-
----
-
-## Phase 5 — Validate (manual in MVP)
-
-For MVP, validation is operator + orchestrator manual review:
-
-- `npm run build` passed cleanly (no warnings regressed)
-- Visit the local page via `npm run dev` — renders correctly
-- Navigation includes the new page (click through to verify)
-- Dashboard shows the new project (if applicable)
-- Footer credit line is present on the new page
-- Internal links inside the new page resolve
-- `documentedBy` + `documentedAt` frontmatter propagated correctly
-
-If any issues surface, loop back to Phase 4 with the findings.
-
-Future: graduate to `devdeck-validator-agent` with Playwright-like navigation + click-through verification.
+- **One project per run.** Never touch other projects' pages.
+- **Respect `/agent-docs/` as the exclusive surface.** Pages outside that prefix are NOT governed by this skill.
+- **Schema-only content.** If research surfaces something that doesn't fit the schema, flag it in validation — don't invent new fields.
+- **Never touch `.env`** or `secrets/`.
+- **Single human gate** (Phase 5). No mid-pipeline approval prompts.
+- **The two-repo quirk** — operate inside `apparent-astronaut/`. Parent `showcase-ast/` is a separate git repo and is not this skill's concern.
+- **Explicit file list on commit.** `git add data/briefs/X data/research/projects/X.json src/pages/agent-docs/X.mdx src/components/Sidebar.astro src/components/Header.astro data/validation/X-*.json`. Never `-A` or `.`.
 
 ---
 
-## Phase 6 — Ship (agent dispatch)
+## Structured report back to orchestrator
 
-Dispatch `devdeck-agent` to commit + push:
-
-```bash
-cd $HOME/WorkSpace/showcase-ast/apparent-astronaut
-git add data/briefs/{slug}.json data/research/projects/{slug}.json data/projects/manifest.json src/pages/{slug}/
-# plus any nav / dashboard / layout files that were touched in Phase 4
-git commit -m "$(cat <<EOF
-docs: add {displayName} ({slug}) project showcase
-
-{one-line summary of the project being documented}
-
-Co-Authored-By: MotherMind <mothermind@mother.dev>
-EOF
-)"
-git push origin main
-```
-
-Vercel auto-deploys on push.
-
----
-
-## Structured report back to invoker
-
-Return this schema for the caller (MotherMind) to log:
+Return this schema so MotherMind can log the run:
 
 ```json
 {
   "projectSlug": "string",
+  "scope": "project | component",
   "status": "success | partial | fail",
   "briefPath": "string (absolute)",
   "researchPath": "string (absolute)",
-  "draftPaths": ["array of absolute paths"],
-  "publishedPages": ["array of src/pages paths"],
+  "mdxPath": "string (absolute)",
+  "validationReportPath": "string (absolute)",
   "commitSha": "7-char sha or null",
-  "iterationsInReview": "number (how many operator-feedback loops happened in Phase 3)",
-  "gapsFlagged": ["array of gap strings from research"],
+  "iterationsInReview": "number (how many Phase-5 loops)",
+  "validationFlags": ["array of flag strings from validator"],
   "note": "one-sentence summary"
 }
 ```
 
 ---
 
-## Constraints
+## Arguments (resume / retry)
 
-- **Two hard editorial gates:** brief approval (end of Phase 0), draft approval (end of Phase 3). Do NOT auto-proceed past either.
-- **One project per run.** Never touch other projects' pages during a single invocation.
-- **Respect `docStyle.skip`** throughout. If the brief says to skip something, it stays skipped.
-- **Don't write meta-notes everywhere.** They should add signal, not clutter. When in doubt, omit.
-- **Don't build the About page here.** The full B-framing About page is a separate task — this skill documents individual projects.
-- **The two-repo quirk** — work inside `apparent-astronaut/` only. Parent `showcase-ast/` is a separate git repo and is not this skill's concern.
-- **Never touch `.env`** or anything in `secrets/`.
+```
+/document-project --path=<path> [--component=<name>]   standard new run
+/document-project --resume=<slug>                       resume mid-pipeline from last artifact
+/document-project --revalidate=<slug>                   re-run Phase 3 only (useful when source code has changed)
+```
+
+Resume reads the last artifact on disk (`data/briefs/`, `data/research/projects/`, `src/pages/agent-docs/`, `data/validation/`) and continues from the first missing stage.
+
+Revalidate updates `lastVerified` if validation passes.

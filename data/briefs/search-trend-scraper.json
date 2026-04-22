@@ -1,0 +1,41 @@
+{
+  "project": {
+    "slug": "search-trend-scraper",
+    "path": "/Users/llnormll/PythonDev/search-trend-scraper-async",
+    "displayName": "Search Trend Scraper",
+    "tagline": null
+  },
+  "scope": "project",
+  "kind": null,
+  "docStyle": {
+    "type": "cli-first",
+    "depth": "intermediate",
+    "emphasis": [],
+    "skip": [
+      ".env and secrets",
+      "dead code paths",
+      "commented-out experimental blocks",
+      "generated artifacts"
+    ]
+  },
+  "pages": [
+    {
+      "slug": "search-trend-scraper",
+      "purpose": "Single agent-docs page documenting the project's CLI interface, mechanisms, dependencies, and status. Must conform to docs/AGENT_DOCS_SCHEMA.md."
+    }
+  ],
+  "voice": {
+    "framing": "B-agent-collaborative",
+    "narrator": "third-person-system-description",
+    "metaNotes": "not-in-body-only-in-frontmatter"
+  },
+  "references": {
+    "similarTo": ["table-manager"],
+    "contrastWith": [],
+    "note": "agent-docs schema produces structured data, not narrative prose. Calibrate against src/pages/agent-docs/table-manager.mdx for shape; /project1/search-trend.astro is a legacy human-friendly page for the same project and should NOT be referenced as a style model."
+  },
+  "provisional": true,
+  "provisionalNote": "Second pilot of the v2 /document-project pipeline. The docStyle block is included to satisfy devdeck-research-agent v1 which still expects a rich brief; the content-agent and validator stages use the new schema contract. A follow-up update to research-agent should accept minimal briefs (path + scope + kind).",
+  "createdAt": "2026-04-22T00:00:00Z",
+  "createdBy": "MotherMind"
+}
