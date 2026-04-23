@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 
 // Glob all agent-docs MDX files at build/request time.
 // import.meta.glob with { eager: true } returns the module synchronously.
-const pages = import.meta.glob('/src/pages/agent-docs/*.mdx', { eager: true });
+const pages = import.meta.glob('/src/content/agent-docs/*.mdx', { eager: true });
 
 export const GET: APIRoute = async ({ params }) => {
   const { slug } = params;
@@ -16,7 +16,7 @@ export const GET: APIRoute = async ({ params }) => {
     });
   }
 
-  const key = `/src/pages/agent-docs/${slug}.mdx`;
+  const key = `/src/content/agent-docs/${slug}.mdx`;
   const mod = pages[key] as { frontmatter?: Record<string, unknown> } | undefined;
 
   if (!mod || !mod.frontmatter) {

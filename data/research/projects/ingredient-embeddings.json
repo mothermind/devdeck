@@ -1,0 +1,187 @@
+{
+  "projectSlug": "ingredient-embeddings",
+  "projectPath": "~/PythonDev/backend-fastapi-copy",
+  "briefPath": "~/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/ingredient-embeddings.json",
+  "generatedAt": "2026-04-23T00:00:00Z",
+  "findings": {
+    "purpose": "Provides semantic similarity search over Korean skincare ingredient names inside the backend-fastapi-copy FastAPI service. The subsystem embeds all known ingredients from a PostgreSQL product_analysis table using a local KLUE-BERT-base model, stores the resulting vectors as a JSON file (locally and on AWS S3), and answers ingredient-filter queries by cosine similarity at runtime.",
+    "techStack": {
+      "primary": ["Python 3.11+", "FastAPI"],
+      "infra": ["AWS S3 (model + embeddings storage)", "PostgreSQL (ingredient source via product_analysis table)", "Local filesystem cache (app/data/embeddings/)"],
+      "keyLibs": [
+        "transformers==4.48.1 (AutoTokenizer, AutoModel — loads klue-bert-base)",
+        "torch==2.5.1+cpu (mean pooling, cosine_similarity, F.normalize)",
+        "huggingface-hub==0.28.0 (model download fallback)",
+        "boto3==1.35.66 (S3 upload/download)"
+      ]
+    },
+    "architecture": "The embedding subsystem is a single class, IngredientMatcher (app/services/filtering.py), exposed to the wider app through a global singleton factory (get_ingredient_matcher). On first instantiation it: (1) downloads the KLUE-BERT-base model from S3 or loads it from app/data/models/klue-bert-base/ if already cached; (2) loads the pre-computed embedding dictionary from app/data/embeddings/ingredient_embeddings.json or downloads it from S3 path models/data/ingredient-search/ingredient_embeddings.json. The in-memory embedding store is a plain Python dict mapping ingredient name string -> torch.Tensor of shape [768]. At query time, the query text is tokenized (max_length=64), passed through the model, mean-pooled, L2-normalized, and cosine-compared against every entry in the dict; results above a 0.9 threshold are returned sorted descending. An exact-substring-in-ingredient match applies a +0.2 boost capped at 1.0. The ingestion/refresh path (compute_and_save_embeddings) fetches DISTINCT matched_answer values from the product_analysis table where question_id='CM00aa7ace476c60', processes them in batches of 32, writes two local JSON files (timestamped archive + canonical ingredient_embeddings.json), updates the singleton's in-memory dict, and uploads both to S3. There is no pgvector or ANN index — similarity search is a full linear scan over the dict. The subsystem does NOT use a postgres vector column; embeddings live in flat JSON files.",
+    "keyCommands": [
+      {
+        "cmd": "POST /metrics/ingredients/update-embeddings",
+        "purpose": "Triggers compute_and_save_embeddings: re-queries product_analysis, re-embeds all ingredients in batches of 32, writes JSON locally and uploads to S3, updates in-memory singleton.",
+        "verified": false
+      },
+      {
+        "cmd": "GET /metrics/ingredients/hybrid-search?query=<string>",
+        "purpose": "Returns fast prefix/substring SQL matches from product_analysis. Does NOT use the vector embeddings — returns up to 10 results with hardcoded similarity scores 1.000 (prefix) or 0.900 (substring).",
+        "verified": false
+      }
+    ],
+    "notableDecisions": [
+      {
+        "decision": "Embeddings stored as flat JSON (dict of name -> float[]), not in a vector database or pgvector column",
+        "rationale": "Simplifies deployment and avoids a dedicated vector store dependency. Enables S3-based versioning and timestamped archives of past embedding runs. The tradeoff is O(n) linear scan on every query; acceptable at the current corpus size (~6,256 ingredients).",
+        "evidence": "app/services/filtering.py:41-45,131-133,212,252"
+      },
+      {
+        "decision": "Global singleton IngredientMatcher loaded once at first request, not at startup",
+        "rationale": "Model loading is expensive (~seconds). The singleton pattern avoids per-request overhead while lazy initialization avoids blocking FastAPI startup if S3 is unreachable.",
+        "evidence": "app/services/filtering.py:350-357"
+      },
+      {
+        "decision": "KLUE-BERT-base (Korean BERT) as the embedding model instead of a multilingual or English model",
+        "rationale": "Ingredient names in this dataset are Korean strings; KLUE-BERT-base is specifically pre-trained on Korean text. The model is downloaded from S3 rather than HuggingFace Hub in production to avoid external network calls.",
+        "evidence": "app/services/filtering.py:38,42,88-89"
+      },
+      {
+        "decision": "Exact-match substring boost (+0.2) on top of cosine similarity",
+        "rationale": "Pure cosine similarity can under-rank ingredients whose name literally contains the query string. The boost ensures prefix/exact matches surface first.",
+        "evidence": "app/services/filtering.py:331-336"
+      },
+      {
+        "decision": "hybrid-search API endpoint uses pure SQL (LIKE), not the vector embeddings",
+        "rationale": "Prefix/substring SQL is faster for typeahead scenarios; the semantic fallback was apparently planned (comment says 'triggers background task for semantic search if needed') but not implemented.",
+        "evidence": "app/api/v1/endpoints/metrics.py:910-951"
+      }
+    ],
+    "currentStatus": "active — last commit touching subsystem files: 2026-02-23",
+    "entryPoints": [
+      "app/services/filtering.py",
+      "app/api/v1/endpoints/metrics.py"
+    ],
+    "dataFlow": "startup → IngredientMatcher.__init__() checks app/data/models/klue-bert-base/ → if missing, downloads model files from S3 (models/klue-bert-base/) → checks app/data/embeddings/ingredient_embeddings.json → if missing, downloads from S3 (models/data/ingredient-search/ingredient_embeddings.json) → loads dict into self._embeddings as {str: torch.Tensor[768]}. Query path: FilterProducts._process_ingredient_filter(ingredient) → IngredientMatcher.search_ingredients(query, threshold=0.9) → _get_embedding(query): tokenize+model+mean_pool+L2_norm → cosine_similarity against every entry in _embeddings + optional substring boost → list of {ingredient, similarity} above threshold → SQL lookup on product_analysis for matching group_ids. Refresh path: POST /ingredients/update-embeddings → compute_and_save_embeddings(session) → SELECT DISTINCT matched_answer FROM product_analysis WHERE question_id='CM00aa7ace476c60' → batch-embed (batch_size=32, max_length=64) → write timestamped JSON + ingredient_embeddings.json locally → upload both to S3 → update in-memory self._embeddings."
+  },
+  "perPage": [
+    {
+      "pageSlug": "ingredient-embeddings",
+      "contentPointers": [
+        {
+          "claim": "kind: service — the subsystem is a runtime embedding service embedded in the FastAPI app, not a standalone CLI tool or pipeline script",
+          "evidence": "app/services/filtering.py:26 (class IngredientMatcher), app/main.py:56-58 (FastAPI app startup)"
+        },
+        {
+          "claim": "displayName: Ingredient Embedding Service",
+          "evidence": "app/services/filtering.py:26"
+        },
+        {
+          "claim": "tagline: Korean ingredient name embedding and similarity search backed by KLUE-BERT-base and AWS S3",
+          "evidence": "app/services/filtering.py:38,41"
+        },
+        {
+          "claim": "sourcePath: app/services/filtering.py — the most representative single file; contains IngredientMatcher class (model loading, embedding generation, similarity search, refresh pipeline) and FilterProducts wrapper",
+          "evidence": "app/services/filtering.py:1-664"
+        },
+        {
+          "claim": "tags: [embeddings, nlp, korean, bert, similarity-search, aws-s3, fastapi, skincare, ingredients]",
+          "evidence": "derived from filtering.py:38,41,325, requirements.txt:11,52,113,115"
+        },
+        {
+          "claim": "techStack.primary: [Python, FastAPI]; infra: [AWS S3, PostgreSQL]; libs: [transformers==4.48.1, torch==2.5.1+cpu, boto3==1.35.66, huggingface-hub==0.28.0]",
+          "evidence": "requirements.txt:11,52,113,115"
+        },
+        {
+          "claim": "dependencies: IngredientMatcher depends on app/core/config.py (get_settings → AWS credentials, S3 client, S3 bucket name), app/core/table_resolver.py (TableResolver.product_analysis — dynamic versioned table name), postgres table product_analysis (column matched_answer, filter question_id='CM00aa7ace476c60'), AWS S3 bucket (model and embeddings storage), local filesystem paths app/data/models/klue-bert-base/ and app/data/embeddings/ingredient_embeddings.json",
+          "evidence": "filtering.py:15,191-196,288,297-302"
+        },
+        {
+          "claim": "mechanism — embedding model: KLUE-BERT-base (klue/klue-bert-base), loaded via transformers AutoTokenizer + AutoModel; 768-dimensional output confirmed from embedding file inspection",
+          "evidence": "filtering.py:38,88-89; embedding file count confirmed: 6256 ingredients, dim=768"
+        },
+        {
+          "claim": "mechanism — mean pooling: token embeddings weighted by attention_mask, summed and divided by clamped mask sum, then L2-normalized with F.normalize(p=2, dim=1)",
+          "evidence": "filtering.py:151-155,167-168"
+        },
+        {
+          "claim": "mechanism — similarity search: full linear scan with torch.cosine_similarity; default threshold=0.9; exact substring match adds +0.2 boost capped at 1.0; results sorted descending",
+          "evidence": "filtering.py:315-346"
+        },
+        {
+          "claim": "mechanism — ingestion/refresh: fetches DISTINCT matched_answer from product_analysis WHERE question_id='CM00aa7ace476c60', processes in batch_size=32, tokenizes with max_length=64, writes timestamped JSON archive + canonical ingredient_embeddings.json locally, uploads both to S3",
+          "evidence": "filtering.py:176-313"
+        },
+        {
+          "claim": "mechanism — model + embedding bootstrap: local cache checked first (model_dir/config.json, embedding_dir/ingredient_embeddings.json); S3 download is fallback only",
+          "evidence": "filtering.py:84-86,129-130"
+        },
+        {
+          "claim": "mechanism — singleton: get_ingredient_matcher() returns a module-level _ingredient_matcher_instance; IngredientMatcher is instantiated once per process, not per request",
+          "evidence": "filtering.py:349-357"
+        },
+        {
+          "claim": "API surface: POST /metrics/ingredients/update-embeddings triggers refresh pipeline; GET /metrics/ingredients/hybrid-search uses pure SQL (LIKE prefix/substring), NOT the vector embeddings",
+          "evidence": "metrics.py:895-907,910-951"
+        },
+        {
+          "claim": "status.stage: active; status.lastCommitAt: 2026-02-23",
+          "evidence": "git log output: 821e627 2026-02-23"
+        },
+        {
+          "claim": "known issue: hybrid-search endpoint docstring says it triggers semantic search 'if needed' but the semantic fallback is not implemented — the endpoint returns SQL substring results only",
+          "evidence": "metrics.py:916-917 (comment), 940-951 (implementation: substring SQL, no embedding call)"
+        },
+        {
+          "claim": "known issue: no scheduled or event-driven refresh — embeddings are refreshed only on explicit POST to /ingredients/update-embeddings; corpus drift between DB and embedding store is possible",
+          "evidence": "filtering.py:595-597; scheduler.py has no reference to embed or ingredient"
+        },
+        {
+          "claim": "no pgvector column or ANN index — embeddings are flat JSON, similarity is O(n) linear scan",
+          "evidence": "filtering.py:324-327; alembic/versions/* contains no vector/embedding migration"
+        },
+        {
+          "claim": "scope.inDoc: KLUE-BERT-base model loading and caching, embedding generation pipeline (compute_and_save_embeddings), in-memory embedding store, cosine similarity search with substring boost, S3 storage and retrieval, API endpoints for refresh and hybrid-search, FilterProducts integration",
+          "evidence": "filtering.py:26-664"
+        },
+        {
+          "claim": "scope.outOfScope: auth, unrelated FastAPI routes, generic CRUD, SmartIngredientStandardizer (separate utility in metrics/utils/), alembic migrations (none touch embeddings), deploy scripts, venv/__pycache__",
+          "evidence": "brief componentScope.skip; ingredient_name_standardizer.py is a separate class with no coupling to IngredientMatcher"
+        },
+        {
+          "claim": "related pages: table-manager (manages the product_analysis versioned table that provides ingredient source data)",
+          "evidence": "filtering.py:191-196 (imports table_resolver); src/pages/agent-docs/table-manager.mdx exists"
+        }
+      ],
+      "suggestedSections": [
+        "Identity (kind: service, displayName: Ingredient Embedding Service, tagline, tags)",
+        "Source (sourceRepo, sourcePath: app/services/filtering.py, lastVerified)",
+        "Tech Stack (primary: Python/FastAPI; infra: AWS S3/PostgreSQL; libs: transformers, torch, boto3)",
+        "Dependencies (config module, table_resolver module, product_analysis postgres table, S3 bucket, local filesystem paths)",
+        "Commands (POST update-embeddings, GET hybrid-search — both verified: false)",
+        "Mechanisms (model-bootstrap, mean-pooling, singleton, cosine-search-with-boost, ingestion-refresh)",
+        "Status (active, lastCommitAt: 2026-02-23, knownIssues: hybrid-search unimplemented semantic fallback, no scheduled refresh)",
+        "Scope (inDoc / outOfScope bullet lists)",
+        "Related (table-manager: provides the product_analysis table)"
+      ]
+    }
+  ],
+  "filesRead": [
+    "~/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/ingredient-embeddings.json",
+    "~/WorkSpace/showcase-ast/apparent-astronaut/docs/AGENT_DOCS_SCHEMA.md",
+    "~/PythonDev/backend-fastapi-copy/app/services/filtering.py",
+    "~/PythonDev/backend-fastapi-copy/app/services/metrics/utils/ingredient_name_standardizer.py",
+    "~/PythonDev/backend-fastapi-copy/app/api/v1/endpoints/metrics.py (lines 880-951)",
+    "~/PythonDev/backend-fastapi-copy/app/main.py",
+    "~/PythonDev/backend-fastapi-copy/app/data/embeddings/ingredient_embeddings.json (stats only via python3 -c)"
+  ],
+  "gapsFromBrief": [
+    "Brief asked about 'caching or batching around the model API' — there is no external model API call at query time; the model runs locally (CPU). The only external call during refresh is S3 upload. No rate-limit handling exists because there is no API to rate-limit.",
+    "Brief asked about 'embedding dimension' — confirmed 768 by inspecting the embedding file directly, but the dimension is not hardcoded in filtering.py itself; it is implicitly set by the KLUE-BERT-base architecture.",
+    "The S3 bucket name is runtime-configured via env var S3_BUCKET_NAME — not visible in source. Could not confirm the exact bucket name without reading .env (skipped per constraint).",
+    "No explicit test coverage for the IngredientMatcher class was found (test.py exists at project root but was not read to stay within depth budget; the brief did not ask about tests)."
+  ],
+  "recommendations": [
+    "The hybrid-search endpoint has a misleading docstring ('triggers background task for semantic search if needed') but the semantic path is never called. The content-agent should flag this as a known issue with severity: medium.",
+    "The in-memory dict grows with corpus size; at 6,256 ingredients with 768-float vectors, each tensor is ~24KB, total ~150MB. This is within acceptable range now but worth noting if corpus grows significantly.",
+    "No scheduled refresh means embeddings can drift from the DB. A cron-triggered call to the update-embeddings endpoint (or a startup hook) would close this gap."
+  ]
+}

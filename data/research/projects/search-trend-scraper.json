@@ -1,7 +1,7 @@
 {
   "projectSlug": "search-trend-scraper",
-  "projectPath": "/Users/llnormll/PythonDev/search-trend-scraper-async",
-  "briefPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/search-trend-scraper.json",
+  "projectPath": "~/PythonDev/search-trend-scraper-async",
+  "briefPath": "~/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/search-trend-scraper.json",
   "generatedAt": "2026-04-21T00:00:00+09:00",
   "findings": {
     "purpose": "A two-stage Python ETL pipeline that scrapes brand search trends from Naver Datalab and Keyword Tool APIs, then joins them with product review data from PostgreSQL to produce proportional weekly search-trend metrics per product group.",
@@ -141,16 +141,16 @@
     }
   ],
   "filesRead": [
-    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/search-trend-scraper.json",
-    "/Users/llnormll/PythonDev/search-trend-scraper-async/README.md",
-    "/Users/llnormll/PythonDev/search-trend-scraper-async/pyproject.toml",
-    "/Users/llnormll/PythonDev/search-trend-scraper-async/scraper.py",
-    "/Users/llnormll/PythonDev/search-trend-scraper-async/main.py",
-    "/Users/llnormll/PythonDev/search-trend-scraper-async/utils/tbl_version_manager.py",
-    "/Users/llnormll/PythonDev/search-trend-scraper-async/utils/utility_functions.py",
-    "/Users/llnormll/PythonDev/search-trend-scraper-async/utils/analysis.py",
-    "/Users/llnormll/PythonDev/search-trend-scraper-async/.gitignore",
-    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/docs/AGENT_DOCS_SCHEMA.md"
+    "~/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/search-trend-scraper.json",
+    "~/PythonDev/search-trend-scraper-async/README.md",
+    "~/PythonDev/search-trend-scraper-async/pyproject.toml",
+    "~/PythonDev/search-trend-scraper-async/scraper.py",
+    "~/PythonDev/search-trend-scraper-async/main.py",
+    "~/PythonDev/search-trend-scraper-async/utils/tbl_version_manager.py",
+    "~/PythonDev/search-trend-scraper-async/utils/utility_functions.py",
+    "~/PythonDev/search-trend-scraper-async/utils/analysis.py",
+    "~/PythonDev/search-trend-scraper-async/.gitignore",
+    "~/WorkSpace/showcase-ast/apparent-astronaut/docs/AGENT_DOCS_SCHEMA.md"
   ],
   "gapsFromBrief": [
     "Brief emphasis[] is empty — no operator-specified emphasis. Inferred emphasis from schema requirements and project shape. A follow-up brief revision with explicit emphasis fields would improve targeting.",

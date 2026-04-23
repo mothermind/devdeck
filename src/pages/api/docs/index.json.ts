@@ -13,7 +13,7 @@ interface CorpusEntry {
 }
 
 // Glob all agent-docs MDX files.
-const pages = import.meta.glob('/src/pages/agent-docs/*.mdx', { eager: true });
+const pages = import.meta.glob('/src/content/agent-docs/*.mdx', { eager: true });
 
 export const GET: APIRoute = async () => {
   const corpus: CorpusEntry[] = [];

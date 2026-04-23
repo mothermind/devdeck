@@ -1,7 +1,7 @@
 {
   "project": {
     "slug": "search-trend-scraper",
-    "path": "/Users/llnormll/PythonDev/search-trend-scraper-async",
+    "path": "~/PythonDev/search-trend-scraper-async",
     "displayName": "Search Trend Scraper",
     "tagline": null
   },

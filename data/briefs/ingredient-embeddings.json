@@ -1,0 +1,53 @@
+{
+  "project": {
+    "slug": "ingredient-embeddings",
+    "path": "~/PythonDev/backend-fastapi-copy",
+    "displayName": "Ingredient Embeddings",
+    "tagline": null
+  },
+  "scope": "component",
+  "componentScope": {
+    "label": "ingredient embeddings",
+    "guidance": "Document the ingredient-embedding subsystem inside this FastAPI backend ONLY — embedding generation, storage, retrieval, similarity search, and any ingestion or refresh pipeline that feeds it. Treat the rest of the backend (auth, unrelated routes, generic CRUD, etc.) as out-of-scope. Locate the component by searching for: 'embedding', 'embed', 'vector', 'ingredient', 'similarity', 'cosine', 'pgvector', 'chroma', 'faiss', 'sentence-transformers', 'openai.Embedding', 'voyage', 'cohere'. The repo root contains app/, scripts/, alembic/, data/. Likely homes for the subsystem: app/<something with ingredient/embedding>, scripts/<embedding generation script>, alembic versions touching a vector column. Confirm location before scoping the page."
+  },
+  "kind": null,
+  "docStyle": {
+    "type": "service-or-pipeline-tbd",
+    "depth": "intermediate",
+    "emphasis": [
+      "the embedding model (provider, model id, dimension)",
+      "where embeddings are stored (table name, column type, index)",
+      "how new ingredients get embedded (batch script vs on-write trigger)",
+      "how queries work (similarity metric, top-k, filters)",
+      "any caching, batching, or rate-limit handling around the model API",
+      "schema-evidence pairs the validator can resolve to file:line"
+    ],
+    "skip": [
+      ".env and secrets",
+      "unrelated FastAPI routes outside the ingredient-embedding flow",
+      "alembic migrations unrelated to the embeddings table or column",
+      "deploy scripts unless they materially affect the embedding subsystem",
+      "venv/ and __pycache__/"
+    ]
+  },
+  "pages": [
+    {
+      "slug": "ingredient-embeddings",
+      "purpose": "Single agent-docs page documenting the ingredient-embedding subsystem inside backend-fastapi-copy. Must conform to docs/AGENT_DOCS_SCHEMA.md."
+    }
+  ],
+  "voice": {
+    "framing": "B-agent-collaborative",
+    "narrator": "third-person-system-description",
+    "metaNotes": "not-in-body-only-in-frontmatter"
+  },
+  "references": {
+    "similarTo": ["search-trend-scraper", "table-manager"],
+    "contrastWith": [],
+    "note": "agent-docs schema produces structured data, not narrative prose. Calibrate against src/pages/agent-docs/search-trend-scraper.mdx and table-manager.mdx for shape. Component-scope means the page documents ONE subsystem of a larger codebase — the sourcePath should point at the most representative file (likely the embedding service module or generation script), and dependencies/mechanisms should describe only the embedding flow."
+  },
+  "provisional": true,
+  "provisionalNote": "Third pilot of the v2 /document-project pipeline; first component-scoped run. The docStyle block is included to satisfy devdeck-research-agent v1 which still expects a rich brief. Component scoping is described in componentScope; research-agent should respect that boundary and not document the entire backend.",
+  "createdAt": "2026-04-23T00:00:00Z",
+  "createdBy": "MotherMind"
+}

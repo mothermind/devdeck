@@ -2,8 +2,9 @@
 interface Props {
   title: string;
   tags?: string[];
+  agentDocsSlug?: string;
 }
-const { title, tags = [] } = Astro.props;
+const { title, tags = [], agentDocsSlug } = Astro.props;
 
 const pathname = Astro.url.pathname;
 let eyebrow = '';
@@ -17,6 +18,13 @@ else if (pathname.startsWith('/project2')) eyebrow = 'Playground';
   {tags.length > 0 && (
     <div class="tags">
       {tags.map(tag => <span class="tag">{tag}</span>)}
+    </div>
+  )}
+  {agentDocsSlug && (
+    <div class="agent-link">
+      <a href={`/api/docs/${agentDocsSlug}.json`} class="agent-badge">
+        🤖 Agent-readable: /api/docs/{agentDocsSlug}.json
+      </a>
     </div>
   )}
   <hr />
@@ -53,6 +61,23 @@ else if (pathname.startsWith('/project2')) eyebrow = 'Playground';
     border-radius: 999px;
     padding: 0.18rem 0.7rem;
     letter-spacing: 0.04em;
+  }
+
+  .agent-link {
+    margin-bottom: 1rem;
+  }
+
+  .agent-badge {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .agent-badge:hover {
+    color: var(--text-muted);
+    text-decoration: none;
   }
 
   hr {

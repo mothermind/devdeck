@@ -1,0 +1,95 @@
+{
+  "slug": "ingredient-embeddings",
+  "mdxPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/src/pages/agent-docs/ingredient-embeddings.mdx",
+  "validatedAt": "2026-04-23T00:00:00Z",
+  "passed": true,
+  "checks": {
+    "schemaConformance": {
+      "pass": true,
+      "issues": [
+        {
+          "severity": "note",
+          "field": "layout",
+          "detail": "Field 'layout: ../../layouts/DocsLayout.astro' is present in frontmatter but not defined in AGENT_DOCS_SCHEMA.md v0.1. It is a standard Astro rendering directive, not a data field. No semantic conflict — additive only.",
+          "action": "report-only (schema drift)"
+        },
+        {
+          "severity": "note",
+          "field": "title",
+          "detail": "Field 'title: Ingredient Embedding Service' is present in frontmatter but not defined in AGENT_DOCS_SCHEMA.md v0.1. The schema uses 'displayName' for the human-friendly name. Both are present and carry the same value. No semantic conflict — additive only.",
+          "action": "report-only (schema drift)"
+        }
+      ]
+    },
+    "evidenceResolution": {
+      "pass": true,
+      "issues": [
+        {
+          "severity": "note",
+          "mechanism": "no-scheduled-refresh (knownIssue)",
+          "evidence": "app/services/filtering.py:595-597",
+          "detail": "Lines 595-597 are the update_ingredient_embeddings wrapper method in FilterProducts, which is the sole update path. The citation supports the claim indirectly (shows update is manual-only), but the most precise evidence for 'no scheduler reference' would be scheduler.py containing no embed/ingredient calls. The current citation is not wrong — it anchors the manual trigger — but it does not by itself prove absence of a scheduler hook. Acceptable as supporting evidence; not blocking.",
+          "action": "operator-note"
+        }
+      ]
+    },
+    "commandVerification": {
+      "pass": true,
+      "verified": 0,
+      "flagged": 0,
+      "issues": [],
+      "note": "Both commands carry verified: false. HTTP-route invocations for kind:service — no shell execution possible or attempted. No false verified claims present."
+    },
+    "crossReferenceIntegrity": {
+      "pass": true,
+      "issues": []
+    },
+    "freshness": {
+      "pass": true,
+      "ageDays": 0
+    }
+  },
+  "inPlaceFixesApplied": [],
+  "specialAttentionDecisions": [
+    {
+      "item": "(a) HTTP-endpoint-as-invocation",
+      "decision": "ACCEPT",
+      "rationale": "The schema defines invocation as 'exact executable command with concrete flags' with a shell-string example, but provides no alternative for kind:service. For a FastAPI service, there is no shell invocation — the HTTP route IS the command surface. Both entries are verified:false, clearly annotated with their HTTP method and path, and include an example. This is the most honest and parseable representation. Flag: the schema v0.1 has a gap — it should document HTTP-invocation syntax for kind:service explicitly. Recommend schema addendum on next version bump."
+    },
+    {
+      "item": "(b) no-scheduled-refresh evidence line filtering.py:595-597",
+      "decision": "ACCEPT with note",
+      "rationale": "Lines 595-597 are the update_ingredient_embeddings wrapper in FilterProducts — the only code path that triggers embedding refresh. The citation correctly anchors the claim that refresh is exclusively manual. It does not directly prove scheduler.py has no reference to embeddings (that would require a negative-evidence citation), but the claim itself ('there is no cron, startup hook, or event-driven trigger') is accurate per the research. Cited lines are real and on-point. Evidence logged as note, not as a block."
+    },
+    {
+      "item": "(c) Memory-footprint growth (~150MB) not promoted to knownIssues",
+      "decision": "CONFIRM — correct call",
+      "rationale": "At 6,256 ingredients × 768 floats × 4 bytes ≈ 19MB for tensors (the research estimate of ~150MB appears to include model weights + tokenizer + embeddings combined). Either way, this is a known operational characteristic, not a bug. The O(n) linear scan IS documented in the flat-json-storage mechanism with explicit rationale. There is no functional defect to flag. Promoting it to knownIssues would add noise. The ingestion-refresh and flat-json-storage mechanisms together give operators full awareness of the tradeoff."
+    }
+  ],
+  "issuesFlagged": [
+    {
+      "severity": "note",
+      "check": "schemaConformance",
+      "detail": "Two extra frontmatter fields present: 'layout' (Astro rendering directive) and 'title' (page title). Neither conflicts with any schema field. Both are additive. The schema v0.1 does not address Astro-native layout/title fields — consider explicitly permitting them in the next schema version.",
+      "location": "frontmatter lines 2-3"
+    },
+    {
+      "severity": "note",
+      "check": "evidenceResolution",
+      "detail": "knownIssue 'no-scheduled-refresh' cites filtering.py:595-597 (the manual update wrapper). This supports the claim but is indirect — it shows the trigger exists as a manual-only path, not a direct citation of scheduler.py being empty of embedding references. Acceptable as-is; operator may optionally strengthen to a negative-evidence note.",
+      "location": "status.knownIssues[1].evidence"
+    },
+    {
+      "severity": "note",
+      "check": "commandVerification",
+      "detail": "Schema v0.1 specifies invocation as a shell-string format. Both commands use HTTP route syntax (POST /metrics/..., GET /metrics/...) appropriate for kind:service. No shell-executable invocation exists for this service. Schema v0.1 has a gap here — no documented format for HTTP endpoints. Recommend adding an invocation pattern note to schema for kind:service in next version.",
+      "location": "commands[0].invocation, commands[1].invocation"
+    }
+  ],
+  "recommendations": [
+    "Schema v0.1 gap: document HTTP-invocation syntax for kind:service in the next schema version bump. Current shell-string invocation spec is ambiguous for service-kind pages.",
+    "Optional: strengthen no-scheduled-refresh evidence by adding a second evidence pointer referencing scheduler.py (or its absence of embedding references) alongside the existing filtering.py:595-597 citation.",
+    "Both layout and title frontmatter fields are Astro-native and should be explicitly permitted (or listed as allowed-extras) in schema v0.2 to avoid repeated schema-drift flags on every agent-docs page."
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "projectSlug": "table-manager",
-  "projectPath": "/Users/llnormll/PythonDev/product-db-pipeline",
-  "briefPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/table-manager.json",
+  "projectPath": "~/PythonDev/product-db-pipeline",
+  "briefPath": "~/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/table-manager.json",
   "generatedAt": "2026-04-21T00:00:00Z",
   "findings": {
     "purpose": "TableVersionManager is a single-file Python class + argparse CLI that manages versioned snapshots of PostgreSQL tables in the product-db-pipeline project — letting engineers create, activate, list, and clean up numbered table versions (e.g. product_raw_007) without ever touching live reads or writing ad-hoc SQL.",
@@ -147,10 +147,10 @@
     }
   ],
   "filesRead": [
-    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/table-manager.json",
-    "/Users/llnormll/PythonDev/product-db-pipeline/src/database/TableVersionManagerCLI.md",
-    "/Users/llnormll/PythonDev/product-db-pipeline/src/database/tbl_version_manager.py",
-    "/Users/llnormll/PythonDev/product-db-pipeline/src/database/db_connector.py (lines 1-80)"
+    "~/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/table-manager.json",
+    "~/PythonDev/product-db-pipeline/src/database/TableVersionManagerCLI.md",
+    "~/PythonDev/product-db-pipeline/src/database/tbl_version_manager.py",
+    "~/PythonDev/product-db-pipeline/src/database/db_connector.py (lines 1-80)"
   ],
   "gapsFromBrief": [
     "table_versions schema origin: no CREATE TABLE migration file exists in the repo. The schema is fully inferable from the SQL in tbl_version_manager.py, but the exact DDL (e.g. whether created_at has DEFAULT NOW(), whether there is a primary key on (table_type, version)) is not in source. Ayden would need to run \\d table_versions in psql to get the authoritative schema if exact DDL matters for the docs page.",

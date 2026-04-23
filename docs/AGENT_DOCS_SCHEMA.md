@@ -1,8 +1,17 @@
 # Agent Docs Schema
 
-**Version:** 0.1 (pilot)
-**Last updated:** 2026-04-21
+**Version:** 0.2 (data-only, discoverability added)
+**Last updated:** 2026-04-23
 **Maintainer:** MotherMind
+
+---
+
+## Changelog
+
+| Version | Date | Summary |
+|---|---|---|
+| 0.1 | 2026-04-21 | Pilot — frontmatter + PageSchema renderer + `/agent-docs/{slug}` HTML routes |
+| 0.2 | 2026-04-23 | Data-only architecture: mdx moved to `src/content/`, HTML routes removed, discoverability layer added (`/llms.txt`, `<link rel="alternate">`, visible badge), `sourceRepo` normalized to `~/...` convention |
 
 ---
 
@@ -10,40 +19,72 @@
 
 DevDeck's primary readers are **MotherMind and the subagents it spawns**. Ayden is a secondary reader using the same surface for personal quick-reference and portfolio display. No other audience exists today.
 
-This document defines the page format optimized for the primary audience: **structured, parseable, grep-friendly, self-contained.** Human-readable polish is a rendering layer, not the source of truth.
+This document defines the page format optimized for the primary audience: **structured, parseable, grep-friendly, self-contained.** Human-readable polish is a rendering layer on the `/project*/` bespoke pages, not the source of truth.
 
-**Scope of this schema:** pages under `/agent-docs/*`. Existing pages under `/`, `/project1/*`, `/project2/*`, `/cheatsheet/*` are NOT governed by this schema. They remain as-is unless a separate retrofit decision is made.
+**Scope of this schema:** files under `src/content/agent-docs/`. Pages under `/`, `/project1/*`, `/project2/*`, `/cheatsheet/*` are NOT governed by this schema.
 
 ---
 
 ## Consumer contract
 
-Agents consume agent-docs pages through three surfaces:
+Agents consume agent-docs content through three surfaces:
 
 | Surface | URL pattern | Returns |
 |---|---|---|
-| Corpus index | `GET /api/docs/index.json` | Array of `{ slug, kind, tagline, tags, status.stage }` for every agent-docs page |
-| Per-page data | `GET /api/docs/{slug}.json` | Full frontmatter of the requested page as JSON |
-| Human view | `GET /agent-docs/{slug}` | Rendered HTML (same content, for human skim) |
+| Corpus index | `GET /api/docs/index.json` | Array of `{ slug, kind, tagline, tags, status.stage }` for every agent-docs entry |
+| Per-page data | `GET /api/docs/{slug}.json` | Full frontmatter of the requested entry as JSON |
+| Human view | `/project1/{slug}` or `/project2/{slug}` | Bespoke narrative page (no longer at `/agent-docs/{slug}`) |
 
-**The JSON endpoints are the canonical surface.** When a subagent needs a command or a mechanism, it fetches the JSON — it does not scrape HTML.
+**The JSON endpoints are the canonical surface.** When a subagent needs a command or a mechanism, it fetches the JSON.
+
+---
+
+## Discoverability
+
+Three surfaces ensure agents can find the JSON regardless of entry point.
+
+### 1. `/llms.txt` — site-wide agent directory
+
+`GET /llms.txt` returns a plain-text machine-readable directory listing all subsystems and human pages. Format follows the emerging `llms.txt` convention. An agent discovering the site for the first time should start here.
+
+### 2. `<link rel="alternate">` in bespoke page heads
+
+Every bespoke project page that has a corresponding agent-docs JSON carries:
+
+```html
+<link rel="alternate" type="application/json" href="/api/docs/{slug}.json" title="Agent-readable spec (JSON)" />
+```
+
+This allows an agent that fetches a human page to immediately discover the structured JSON URL from the `<head>`.
+
+### 3. Visible agent-readable badge on bespoke pages
+
+`PageHeader` renders a muted footnote link when `agentDocsSlug` is set:
+
+```
+🤖 Agent-readable: /api/docs/{slug}.json
+```
+
+Visible to both humans and agents rendering the page.
 
 ---
 
 ## File layout
 
 ```
-src/pages/agent-docs/{slug}.mdx          ← page source (frontmatter = data, body = render)
+src/content/agent-docs/{slug}.mdx        ← data-only: frontmatter is the contract, no body
 src/pages/api/docs/[slug].json.ts        ← per-page JSON endpoint (SSR)
 src/pages/api/docs/index.json.ts         ← corpus index endpoint (SSR)
-src/components/agent-docs/PageSchema.astro  ← deterministic renderer
+src/pages/llms.txt.ts                    ← site-wide agent directory (SSR)
 ```
+
+The mdx files live in `src/content/` — outside `src/pages/`, so Astro does not generate HTML routes for them. `import.meta.glob` still exposes their `frontmatter` for the JSON endpoints.
 
 ---
 
 ## Frontmatter schema
 
-Every agent-docs page MUST carry this frontmatter structure. Fields marked **required** cannot be omitted. Empty arrays (`[]`) are valid and mean "no entries"; missing fields are a schema violation.
+Every agent-docs file MUST carry this frontmatter structure. Fields marked **required** cannot be omitted. Empty arrays (`[]`) are valid and mean "no entries"; missing fields are a schema violation.
 
 ```yaml
 ---
@@ -57,7 +98,7 @@ tagline: string                 # one line, no period if possible
 documentedBy: string            # "MotherMind" for now
 documentedAt: YYYY-MM-DD        # date of first generation
 lastVerified: YYYY-MM-DD        # date of last verification (update when re-running research)
-sourceRepo: string              # absolute path to source repo on Ayden's machine
+sourceRepo: string              # path to source repo; ~/... convention (os.path.expanduser / Node os.homedir() resolves it)
 sourcePath: string              # relative path from sourceRepo to the main source file
 
 # --- TAXONOMY (required) ---
@@ -113,51 +154,10 @@ scope:
 
 # --- RELATED (required; empty array allowed) ---
 related:
-  - slug: string                # another agent-docs page
+  - slug: string                # another agent-docs entry
     relation: string            # one phrase on how they relate
 ---
 ```
-
----
-
-## Body convention
-
-The body of every agent-docs page is **one component call**. No prose. No additional sections.
-
-```mdx
----
-# ...frontmatter as above...
----
-
-import PageSchema from '../../components/agent-docs/PageSchema.astro';
-
-<PageSchema data={frontmatter} />
-```
-
-If a page needs prose (rare — reserved for narrative exceptions), it goes in a dedicated `notes:` frontmatter field (not yet defined; add to schema when the first real need surfaces).
-
-**Why no prose in body:** prose drifts in voice, breaks section predictability, and agents have to parse it. Everything an agent needs is in the frontmatter. The PageSchema component is the one place we decide how to render.
-
----
-
-## PageSchema rendering
-
-`src/components/agent-docs/PageSchema.astro` renders the frontmatter deterministically. Human-readable layout, but the structure mirrors the data exactly.
-
-**Required H2 sections in order:**
-
-1. **Identity** — displayName, kind, tagline, tags
-2. **Source** — sourceRepo, sourcePath, lastVerified
-3. **Tech Stack** — primary / infra / libs
-4. **Dependencies** — table of dependencies
-5. **Commands** — table of commands, each with invocation block (copy-button enabled via Base.astro script)
-6. **Mechanisms** — list of mechanisms with evidence links
-7. **Status** — stage badge + knownIssues table
-8. **Scope** — inDoc / outOfScope bullet lists
-9. **Related** — link list to other agent-docs pages
-10. **Provenance** — documentedBy, documentedAt (small muted footer)
-
-Agents do not read the rendered HTML for structured data. The H2 order exists for the human skim and for fallback `<h2>`-based parsing if the JSON endpoint is ever unavailable.
 
 ---
 
@@ -165,15 +165,15 @@ Agents do not read the rendered HTML for structured data. The H2 order exists fo
 
 ### `GET /api/docs/{slug}.json`
 
-Returns the full frontmatter of the requested page as JSON. Field names and structure match the YAML spec above exactly.
+Returns the full frontmatter of the requested entry as JSON. Field names and structure match the YAML spec above exactly.
 
-**404** if no page exists for the slug.
+**404** if no entry exists for the slug.
 **Content-Type:** `application/json; charset=utf-8`
 **Caching:** no-cache during development; CDN-cached with short TTL in production.
 
 ### `GET /api/docs/index.json`
 
-Returns an array of corpus entries for every page under `src/pages/agent-docs/`:
+Returns an array of corpus entries for every file under `src/content/agent-docs/`:
 
 ```json
 [
@@ -204,9 +204,9 @@ Fields are a subset of the full frontmatter — enough for discovery, not the wh
 
 ## Versioning
 
-This schema is version `0.1`. Breaking changes (renames, removals, type changes) bump the minor digit (`0.1` → `0.2`). Additive changes (new optional fields) do not bump.
+This schema is version `0.2`. Breaking changes (renames, removals, type changes) bump the minor digit. Additive changes (new optional fields) do not bump.
 
-All existing agent-docs pages must conform to the current schema. Migration is required on breaking changes; no backwards-compatibility shims.
+All existing agent-docs files must conform to the current schema. Migration is required on breaking changes; no backwards-compatibility shims.
 
 ---
 
@@ -216,11 +216,11 @@ A future `devdeck-validator-agent` will enforce this schema. Manual validation c
 
 - [ ] All required fields present and non-null
 - [ ] `slug` matches filename
-- [ ] `sourceRepo` path exists on disk
+- [ ] `sourceRepo` uses `~/...` path convention
 - [ ] `sourcePath` (relative to `sourceRepo`) exists on disk
 - [ ] Every `mechanisms[].evidence` and `knownIssues[].evidence` file:line resolves to a real file
 - [ ] Every `commands[].invocation` runs without error when `verified: true`
-- [ ] `related[].slug` values match other real agent-docs pages
+- [ ] `related[].slug` values match other real agent-docs entries
 - [ ] `lastVerified` is recent enough to trust `verified: true` commands
 
 ---
@@ -235,9 +235,9 @@ displayName: Example Tool
 tagline: Minimal demo of the schema.
 
 documentedBy: MotherMind
-documentedAt: 2026-04-21
-lastVerified: 2026-04-21
-sourceRepo: /path/to/source/repo
+documentedAt: 2026-04-23
+lastVerified: 2026-04-23
+sourceRepo: ~/path/to/source/repo
 sourcePath: src/example.py
 
 tags: [demo]
@@ -258,7 +258,7 @@ mechanisms: []
 
 status:
   stage: stable
-  lastCommitAt: 2026-04-21
+  lastCommitAt: 2026-04-23
   knownIssues: []
 
 scope:
@@ -267,8 +267,4 @@ scope:
 
 related: []
 ---
-
-import PageSchema from '../../components/agent-docs/PageSchema.astro';
-
-<PageSchema data={frontmatter} />
 ```

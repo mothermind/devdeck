@@ -1,7 +1,7 @@
 {
   "project": {
     "slug": "table-manager",
-    "path": "/Users/llnormll/PythonDev/product-db-pipeline",
+    "path": "~/PythonDev/product-db-pipeline",
     "displayName": "Table Version Manager",
     "tagline": "A Rich-powered CLI for versioned Postgres tables — snapshot, activate, retire without touching live reads."
   },

@@ -1,8 +1,9 @@
 ---
 interface Props {
   title?: string;
+  agentDocsSlug?: string;
 }
-const { title = 'DevDeck' } = Astro.props;
+const { title = 'DevDeck', agentDocsSlug } = Astro.props;
 ---
 
 <!DOCTYPE html>
@@ -18,6 +19,14 @@ const { title = 'DevDeck' } = Astro.props;
       rel="stylesheet"
     />
     <title>{title === 'DevDeck' ? 'DevDeck' : `${title} · DevDeck`}</title>
+    {agentDocsSlug && (
+      <link
+        rel="alternate"
+        type="application/json"
+        href={`/api/docs/${agentDocsSlug}.json`}
+        title="Agent-readable spec (JSON)"
+      />
+    )}
   </head>
   <body>
     <slot />

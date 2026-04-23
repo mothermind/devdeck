@@ -8,11 +8,12 @@ interface Props {
   title?: string;
   showToc?: boolean;
   wide?: boolean;
+  agentDocsSlug?: string;
 }
-const { title, showToc = true, wide = false } = Astro.props;
+const { title, showToc = true, wide = false, agentDocsSlug } = Astro.props;
 ---
 
-<Base title={title}>
+<Base title={title} agentDocsSlug={agentDocsSlug}>
   <Header />
 
   <div class="shell">
