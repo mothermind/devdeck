@@ -1,0 +1,162 @@
+{
+  "projectSlug": "bkurly-scraper",
+  "projectPath": "/Users/llnormll/PythonDev/bkurly-scraper-async",
+  "briefPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/bkurly-scraper.json",
+  "generatedAt": "2026-04-23T00:00:00Z",
+  "findings": {
+    "purpose": "Async scraper for the Beauty Kurly (뷰티컬리) storefront at kurly.com. Crawls all beauty product categories via Playwright, extracts product metadata and images, and persists them to AWS DynamoDB and S3 — with duplicate-check-based skip logic to support incremental runs.",
+    "techStack": {
+      "primary": ["Python 3.9+", "asyncio"],
+      "infra": [
+        "AWS DynamoDB (product metadata store, table: BK_MetaData)",
+        "AWS S3 (image store, bucket: trendmix)",
+        "AWS RDS PostgreSQL (category source read, trendmix-db, ap-southeast-1)",
+        "Playwright Chromium (headless browser)"
+      ],
+      "keyLibs": [
+        "playwright>=1.57.0 — headless browser for JS-rendered product pages",
+        "beautifulsoup4>=4.14.3 — HTML parsing after Playwright page.content()",
+        "aiohttp>=3.13.3 — async HTTP for image downloads",
+        "aioboto3>=15.5.0 — async AWS SDK for DynamoDB + S3",
+        "pillow>=11.3.0 — in-memory PNG re-encode before S3 upload",
+        "sqlalchemy>=2.0.46 — sync RDS reads (category_source table)",
+        "rich>=14.3.1 — console UI, progress, summary tables",
+        "pandas>=2.3.3 — tabular result from read_table_from_rds",
+        "certifi>=2026.1.4 — SSL context fix for aiohttp",
+        "python-dotenv>=1.2.1 — .env loading"
+      ]
+    },
+    "architecture": "Single-file pipeline (`main.py`) built around the `AsyncBKurlyScraper` class. At startup, `main()` reads the category list from the shared AWS RDS PostgreSQL table `category_source` (filtering rows where `source_id == 'bk'`) to get a dict of `{category_name: category_number}`. A single Playwright Chromium browser instance is launched and categories are iterated sequentially. For each category, `get_product_links()` navigates to `kurly.com/categories/{id}?site=beauty`, waits 3 s for JS hydration, then extracts all `/goods/` hrefs. Each product link is pre-checked against DynamoDB (`get_item_attributes`) — already-seen items are logged as SKIPPED without launching a browser page. New items are dispatched as asyncio tasks via `scrape_with_semaphore()`, which gates concurrency to `max_concurrent_browsers` (default 5) via `asyncio.Semaphore`. Each task opens a new page, navigates to the product URL (3 s wait), calls `extract_metadata()` (og: meta + CSS-class selectors for price/ingredients/size/reviews), then runs image extraction and DynamoDB insert in sequence. Images are downloaded via aiohttp, decoded by Pillow, re-encoded as PNG in memory, and uploaded to S3 under `images/beauty_kurly/product_main/{category_id}/{item_id}.png` and `images/beauty_kurly/product_detail/{category_id}/{item_id}.png`. `utils/logger.py` provides async `log_item()` backed by a CSV file at `logs/beauty-kurly_YYYY-MM-DD.csv`, plus Rich console banners and summary tables. `utils/utility_functions.py` houses `DatabaseHandler` (DynamoDB + S3 + RDS ops) and `PreProcessor` (text cleanup).",
+    "keyCommands": [
+      {
+        "cmd": "uv run python main.py",
+        "purpose": "Full pipeline run — reads categories from RDS, scrapes all Beauty Kurly product pages, uploads images to S3, writes metadata to DynamoDB",
+        "verified": false
+      },
+      {
+        "cmd": "python main.py",
+        "purpose": "Same as above when .venv is already activated",
+        "verified": false
+      }
+    ],
+    "notableDecisions": [
+      {
+        "decision": "DynamoDB as product metadata store instead of Postgres",
+        "rationale": "Fast key-value lookup for duplicate checking by item_id before launching browser pages, keeping skip logic O(1) per product",
+        "evidence": "utils/utility_functions.py:92-107"
+      },
+      {
+        "decision": "Semaphore-bounded gather() over a sequential loop for product scraping",
+        "rationale": "Playwright pages are opened per-product but capped at 5 concurrent browsers to stay under anti-bot thresholds; gather() maximises throughput within that cap",
+        "evidence": "main.py:25, main.py:182-188, main.py:219"
+      },
+      {
+        "decision": "3-second wait_for_timeout after goto()",
+        "rationale": "Beauty Kurly pages are Next.js/React SPA — wait_until='domcontentloaded' alone is insufficient; hard-coded 3 s ensures client-side hydration completes",
+        "evidence": "main.py:36-37, main.py:151-152"
+      },
+      {
+        "decision": "Categories sourced from shared RDS table rather than hard-coded",
+        "rationale": "Shared `category_source` table in RDS normalizes category IDs across sibling scrapers (BK + OliveYoung at minimum) behind a `source_id` discriminator column",
+        "evidence": "main.py:239-241"
+      },
+      {
+        "decision": "Images stored as PNG regardless of source format",
+        "rationale": "Pillow re-encodes every downloaded image as PNG before S3 upload — normalizes format at the cost of possible size increase vs. original JPEG/WebP",
+        "evidence": "utils/utility_functions.py:65-66"
+      }
+    ],
+    "currentStatus": "dormant — last commit 2026-01-30",
+    "entryPoints": ["main.py"],
+    "dataFlow": "RDS (category_source, source_id='bk') → main.py reads category dict → Playwright browser navigates category pages → BS4 parses /goods/ hrefs → DynamoDB pre-check (get_item_attributes by item_id) → SKIPPED or scrape task → Playwright navigates product page → BS4 extracts og: meta + CSS selectors → aiohttp downloads images → Pillow re-encodes to PNG → S3 upload (images/beauty_kurly/product_main|product_detail/{category_id}/{item_id}.png) → DynamoDB insert (BK_MetaData table) → CSV log (logs/beauty-kurly_YYYY-MM-DD.csv)"
+  },
+  "perPage": [
+    {
+      "pageSlug": "bkurly-scraper",
+      "contentPointers": [
+        {
+          "claim": "Pipeline kind: single-entrypoint async scraper that reads config from shared RDS and writes to DynamoDB + S3",
+          "evidence": "main.py:236-268"
+        },
+        {
+          "claim": "Concurrency model: asyncio.Semaphore(5) gates Playwright browser pages; asyncio.gather() runs capped concurrent tasks",
+          "evidence": "main.py:25, main.py:182-188, main.py:219"
+        },
+        {
+          "claim": "Anti-bot / rate-limit strategy: hard-coded 3 s wait_for_timeout after every page.goto(); no proxy rotation or User-Agent randomization implemented",
+          "evidence": "main.py:37, main.py:152"
+        },
+        {
+          "claim": "Checkpoint/skip logic: DynamoDB query by itemId before adding product to task list; already-present items are counted as SKIPPED without fetching the page",
+          "evidence": "main.py:207-215, utils/utility_functions.py:92-107"
+        },
+        {
+          "claim": "Metadata fields collected: category_id, item_name, item_id, item_url, brand_name, original_price, sale_price, size (ml summed), ingredients (7th list item), reviews count, extracted_date",
+          "evidence": "main.py:52-100, utils/utility_functions.py:35-47"
+        },
+        {
+          "claim": "S3 key layout: images/beauty_kurly/product_main/{category_id}/{item_id}.png and images/beauty_kurly/product_detail/{category_id}/{item_id}.png in bucket 'trendmix'",
+          "evidence": "main.py:114, main.py:135"
+        },
+        {
+          "claim": "DynamoDB table name hardcoded as 'BK_MetaData'; S3 bucket hardcoded as 'trendmix'",
+          "evidence": "utils/utility_functions.py:15-16"
+        },
+        {
+          "claim": "Categories read from shared RDS table category_source filtered by source_id='bk'",
+          "evidence": "main.py:239-241"
+        },
+        {
+          "claim": "CSV log produced daily at logs/beauty-kurly_YYYY-MM-DD.csv with fields: timestamp, item_id, status, dynamo, main_image, detail_image, error",
+          "evidence": "main.py:18-23, README.md:104"
+        },
+        {
+          "claim": "No retry logic on individual product scrape failures — exceptions are caught, logged as FAILED, and execution continues",
+          "evidence": "main.py:175-179"
+        },
+        {
+          "claim": "No .env.sample exists; credentials are documented only in README.md prose",
+          "evidence": "README.md:53-59 (env docs); filesystem — no .env.sample found"
+        },
+        {
+          "claim": "RDS connection string is hardcoded in utility_functions.py, not read from env",
+          "evidence": "utils/utility_functions.py:17"
+        }
+      ],
+      "suggestedSections": [
+        "What it scrapes (Beauty Kurly site, category scope, product data fields)",
+        "Pipeline stages (category read → link harvest → dedup check → scrape → image upload → DynamoDB write)",
+        "Concurrency model (semaphore + gather pattern)",
+        "Output schema (DynamoDB item shape, S3 key layout, CSV log)",
+        "Shared infra (RDS category_source, trendmix bucket, BK_MetaData table)",
+        "Known issues (hardcoded credentials, no retry, CSS-selector fragility, no .env.sample)",
+        "Running it (uv run python main.py)"
+      ]
+    }
+  ],
+  "filesRead": [
+    "data/briefs/bkurly-scraper.json",
+    "bkurly-scraper-async/README.md",
+    "bkurly-scraper-async/main.py",
+    "bkurly-scraper-async/pyproject.toml",
+    "bkurly-scraper-async/requirements.txt",
+    "bkurly-scraper-async/.gitignore",
+    "bkurly-scraper-async/utils/utility_functions.py",
+    "bkurly-scraper-async/utils/logger.py (first 140 lines)",
+    "apparent-astronaut/docs/AGENT_DOCS_SCHEMA.md",
+    "apparent-astronaut/src/content/agent-docs/search-trend-scraper.mdx (first 80 lines, for calibration)"
+  ],
+  "gapsFromBrief": [
+    "No .env.sample exists — README.md documents env vars in prose only (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, S3_BUCKET_NAME), but env loading in utility_functions.py uses load_dotenv() without declaring required keys, so the actual consumed var names are not formally documented",
+    "Retry policy gap: there is no retry on failed product scrapes. The brief asked for retry policy evidence — the answer is that none exists; failures fall through to a generic exception catch that logs FAILED and moves on (main.py:175-179)",
+    "No proxy rotation or User-Agent randomization detected — anti-bot handling is limited to the 3 s hard-coded sleep after navigation. Brief asked for this; confirmed absence is the finding",
+    "oliveyoung-scraper research not yet available (being documented in parallel) — the `related` link is asserted based on shared RDS category_source table and shared S3 trendmix bucket, both confirmed in source",
+    "Exact DynamoDB partition key / sort key schema for BK_MetaData not visible from utility_functions.py — insert uses put_item with flat dict; query uses itemId as KeyConditionExpression, so itemId is the partition key, but sort key (if any) is not documented in source"
+  ],
+  "recommendations": [
+    "CRITICAL known issue to surface: RDS PostgreSQL connection string with credentials is hardcoded in utils/utility_functions.py:17, not loaded from env — this is a credential leak risk in any non-private repo and the content-agent should flag it as severity=critical in knownIssues",
+    "The requirements.txt and pyproject.toml have version skew (requirements.txt pins e.g. playwright==1.41.1 vs pyproject.toml >=1.57.0) — both files are present and the pyproject.toml is the active uv manifest; requirements.txt appears to be a legacy artifact worth noting",
+    "detail_image extraction relies on a CSS class 'context last' (main.py:128) which is highly site-structure-dependent; same fragility applies to price/ingredients/reviews CSS selectors — worth calling out under knownIssues at severity=medium",
+    "No scheduling or orchestration layer exists in this repo — the scraper is run manually or via external cron. Worth noting in scope.outOfScope"
+  ]
+}

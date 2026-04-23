@@ -1,0 +1,42 @@
+{
+  "slug": "bkurly-scraper",
+  "mdxPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/src/content/agent-docs/bkurly-scraper.mdx",
+  "validatedAt": "2026-04-23T00:00:00Z",
+  "passed": true,
+  "checks": {
+    "schemaConformance": {
+      "pass": true,
+      "issues": []
+    },
+    "evidenceResolution": {
+      "pass": true,
+      "issues": []
+    },
+    "commandVerification": {
+      "pass": true,
+      "verified": 0,
+      "flagged": 0,
+      "issues": []
+    },
+    "crossReferenceIntegrity": {
+      "pass": true,
+      "issues": []
+    },
+    "freshness": {
+      "pass": true,
+      "ageDays": 0
+    }
+  },
+  "inPlaceFixesApplied": [
+    {
+      "field": "status.knownIssues[css-selector-fragility].evidence",
+      "before": "main.py:128",
+      "after": "main.py:127",
+      "reason": "Off-by-one: the 'context last' CSS class selector is at line 127 (soup.find('div', class_='context last')); line 128 is the .find('img')['src'] call that follows it. Corrected to point at the actual selector."
+    }
+  ],
+  "issuesFlagged": [],
+  "recommendations": [
+    "ready to ship"
+  ]
+}

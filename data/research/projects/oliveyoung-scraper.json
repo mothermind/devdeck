@@ -1,0 +1,200 @@
+{
+  "projectSlug": "oliveyoung-scraper",
+  "projectPath": "/Users/llnormll/PythonDev/oliveyoung-scraper-async",
+  "briefPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/oliveyoung-scraper.json",
+  "generatedAt": "2026-04-23T00:00:00Z",
+  "findings": {
+    "purpose": "Async Playwright-based scraper that collects Olive Young skincare product metadata (name, price, brand, category, ingredients, volume, ratings, reviews) plus product images (main and stitched detail images), storing metadata in AWS DynamoDB and images in AWS S3. Designed for periodic (monthly) full-catalog runs with resume and retry-failed support.",
+    "techStack": {
+      "primary": ["Python 3.9+", "asyncio"],
+      "infra": ["AWS DynamoDB (OliveYoung_MetaData table)", "AWS S3 (S3_BUCKET_NAME env var)"],
+      "keyLibs": [
+        "playwright>=1.45.0 — headless Chromium automation for product pages and category pagination",
+        "aiohttp>=3.10.0 — async image downloads from CDN URLs",
+        "aioboto3>=13.1.0 — async AWS S3 + DynamoDB client (uploads, queries, existence checks)",
+        "boto3>=1.34.0 — sync fallback AWS client (used transitionally in utility_functions.py)",
+        "beautifulsoup4>=4.12.0 — HTML parsing for category product URL extraction",
+        "pillow>=10.4.0 — image resizing, RGB conversion, and vertical stitch of detail images",
+        "rich>=13.0.0 — Rich console output, progress bars, summary tables",
+        "python-dotenv>=1.0.0 — loads .env for AWS credentials",
+        "pandas>=2.2.0 — listed in pyproject.toml but not used in main.py or utils (likely legacy)"
+      ]
+    },
+    "architecture": "Single-file primary entry point (main.py, ~900 LOC). The OliveYoungScraper class handles per-product extraction; free functions handle category crawling, CAPTCHA detection, semaphore-wrapped concurrency, and progress tracking. Flow: (1) load category IDs from categories.json, (2) filter via progress.json to skip completed/failed categories, (3) launch a single Playwright browser/context with anti-detection stealth JS injected, (4) for each remaining category: crawl all paginated product URLs using BeautifulSoup, mark category complete, (5) deduplicate collected URLs, then dispatch products in parallel mode (asyncio.Semaphore-gated asyncio.gather) or sync mode. Per-product pipeline: navigate page -> extract og:/eg: meta tags via JS -> check DynamoDB and S3 existence -> if not duplicate: extract ratings/ingredients, download main image, scroll + stitch detail images, upload both to S3, insert to DynamoDB. A shared utils/ package provides DatabaseHandler (aioboto3 DynamoDB + S3), PreProcessor (text cleaning + image stitching), and ScraperLogger (Rich console + daily CSV log files).",
+    "keyCommands": [
+      {
+        "cmd": "python main.py --help",
+        "purpose": "Show all CLI flags and usage examples",
+        "verified": true
+      },
+      {
+        "cmd": "python main.py",
+        "purpose": "Default parallel run (5 concurrent workers, 1s async delay), resumes from progress.json",
+        "verified": false
+      },
+      {
+        "cmd": "python main.py --parallel 2 --async-delay 2",
+        "purpose": "Light parallel mode with 2 concurrent workers and 2s inter-product delay",
+        "verified": false
+      },
+      {
+        "cmd": "python main.py --sync --delay 3",
+        "purpose": "Synchronous mode scraping one product at a time with 3s delay",
+        "verified": false
+      },
+      {
+        "cmd": "python main.py --status",
+        "purpose": "Print progress summary (completed/failed/remaining categories) without scraping",
+        "verified": false
+      },
+      {
+        "cmd": "python main.py --reset",
+        "purpose": "Delete progress.json to start a fresh monthly run",
+        "verified": false
+      },
+      {
+        "cmd": "python main.py --retry-failed",
+        "purpose": "Re-run only categories marked as failed in progress.json",
+        "verified": false
+      },
+      {
+        "cmd": "python main.py --limit 50",
+        "purpose": "Cap total products scraped across all categories (0 = no limit)",
+        "verified": false
+      }
+    ],
+    "notableDecisions": [
+      {
+        "decision": "Category-level progress tracking (not product-level) written to progress.json",
+        "rationale": "Avoids persisting a per-product checkpoint file; instead deduplication against DynamoDB is re-run per product on resume so no extra state file is needed",
+        "evidence": "main.py:72-96, main.py:827-842"
+      },
+      {
+        "decision": "Smart deduplication: checks DynamoDB AND both S3 keys before any network work; skips entirely if all three exist",
+        "rationale": "Allows safe reruns mid-catalog without re-uploading images or re-inserting DB records",
+        "evidence": "main.py:421-429"
+      },
+      {
+        "decision": "Single shared Playwright browser context for all category crawls; per-product pages opened/closed inside scrape_product wrapper",
+        "rationale": "Reduces browser launch overhead while keeping per-page isolation for parallel tasks",
+        "evidence": "main.py:756-818, main.py:527-546"
+      },
+      {
+        "decision": "Detail images scrolled, collected from #tab-panels, downloaded individually, then stitched vertically into a single JPEG before S3 upload",
+        "rationale": "Single composite image is cheaper to store and retrieve than many individual detail images",
+        "evidence": "main.py:274-306, main.py:449-462, utils/utility_functions.py:178-211"
+      },
+      {
+        "decision": "DynamoDB table name 'OliveYoung_MetaData' hardcoded in OliveYoungScraper.__init__",
+        "rationale": "No apparent rationale — likely an expedient choice; cannot be overridden via CLI or env var",
+        "evidence": "main.py:144"
+      }
+    ],
+    "currentStatus": "active — last commit 2026-01-30",
+    "entryPoints": ["main.py"],
+    "dataFlow": "Input: categories.json (23 Olive Young dispCatNo IDs) + .env (AWS credentials + S3 bucket name). Stage 1 — category crawl: Playwright navigates each category list page, switches to list view, sets max items per page, paginates up to 20 pages, extracts getGoodsDetail.do product URLs via BeautifulSoup. Stage 2 — product scrape: for each URL, Playwright loads the product page (networkidle), extracts og:/eg: structured meta tags via JS evaluate, checks DynamoDB (itemId + category2 composite key) and S3 (main + detail keys under images/olive_young/product_main/ and images/olive_young/product_detail/) for existing records. If missing: aiohttp downloads main image from og:image CDN URL; Playwright clicks expand button + scrolls to trigger lazy load, collects detail image URLs from #tab-panels, aiohttp downloads each (3 retries, exponential backoff), Pillow stitches them vertically; aioboto3 uploads both images as JPEG to S3; aioboto3 inserts structured item dict to DynamoDB. Output: DynamoDB table OliveYoung_MetaData (itemId PK, category2 SK) + S3 images + daily CSV logs under logs/."
+  },
+  "perPage": [
+    {
+      "pageSlug": "oliveyoung-scraper",
+      "contentPointers": [
+        {
+          "claim": "Entry point is main.py; invoked as `python main.py` with argparse-defined flags",
+          "evidence": "main.py:627-687, main.py:903-907"
+        },
+        {
+          "claim": "Default parallel concurrency is 5 workers controlled via asyncio.Semaphore",
+          "evidence": "main.py:649-653, main.py:884"
+        },
+        {
+          "claim": "Per-product async delay of 1.0s (parallel) or 3.0s (sync) between requests to avoid detection",
+          "evidence": "main.py:663-671, main.py:871, main.py:890-891"
+        },
+        {
+          "claim": "Anti-detection: --disable-blink-features=AutomationControlled chrome flag plus stealth JS overrides navigator.webdriver, navigator.plugins, navigator.languages, and window.chrome",
+          "evidence": "main.py:756-815"
+        },
+        {
+          "claim": "User-agent spoofed as Chrome 120 on Windows 10; locale ko-KR; timezone Asia/Seoul; Korean Accept-Language headers",
+          "evidence": "main.py:779-795"
+        },
+        {
+          "claim": "CAPTCHA handling: detects 6 selector patterns; pauses 30s for manual intervention if found",
+          "evidence": "main.py:485-509"
+        },
+        {
+          "claim": "Image retry: 3 attempts with exponential backoff (2^attempt sleep) on aiohttp download failure",
+          "evidence": "main.py:349-360"
+        },
+        {
+          "claim": "S3 key pattern: images/olive_young/product_main/{category_id[:-4]}/{category_id[-4:]}/{item_id}.jpg",
+          "evidence": "main.py:418-419"
+        },
+        {
+          "claim": "DynamoDB table name 'OliveYoung_MetaData' hardcoded; composite key (itemId partition, category2 sort)",
+          "evidence": "main.py:144, utils/utility_functions.py:73-87"
+        },
+        {
+          "claim": "Progress checkpoint granularity is per-category (not per-product); stored in progress.json with completed_categories and failed_categories arrays",
+          "evidence": "main.py:52-88, main.py:827-842"
+        },
+        {
+          "claim": "pyproject.toml entry point `scrape = \"main_v2:main\"` points to a module that no longer exists; file was renamed main.py",
+          "evidence": "pyproject.toml:21, main.py:1"
+        },
+        {
+          "claim": "No .env.sample file exists in the repo; required env vars documented only in README.md",
+          "evidence": "README.md:61-67 (documentation only)"
+        },
+        {
+          "claim": "pandas listed as dependency in pyproject.toml but not imported in main.py or utils/",
+          "evidence": "pyproject.toml:8"
+        },
+        {
+          "claim": "selenium listed in requirements.txt but not in pyproject.toml and not used in main.py or utils/",
+          "evidence": "requirements.txt:5"
+        },
+        {
+          "claim": "SSL certificate verification disabled for all aiohttp image downloads (check_hostname=False, CERT_NONE)",
+          "evidence": "main.py:258-261, main.py:343-346"
+        }
+      ],
+      "suggestedSections": [
+        "Identity + tagline",
+        "What it scrapes (Olive Young product universe, 23 category IDs, data fields extracted)",
+        "CLI commands table (all flags with short forms and defaults)",
+        "Concurrency model (semaphore default 5, async delay, sync fallback)",
+        "Anti-bot strategy (stealth JS, user-agent, CAPTCHA pause)",
+        "Output pipeline (DynamoDB table + S3 path layout)",
+        "Resume and retry logic (progress.json, --retry-failed, product-level dedup via DynamoDB+S3)",
+        "Known issues (hardcoded table name, broken pyproject entry point, no .env.sample, SSL disabled, dead deps)"
+      ]
+    }
+  ],
+  "filesRead": [
+    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/oliveyoung-scraper.json",
+    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/docs/AGENT_DOCS_SCHEMA.md",
+    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/src/content/agent-docs/search-trend-scraper.mdx",
+    "/Users/llnormll/PythonDev/oliveyoung-scraper-async/README.md",
+    "/Users/llnormll/PythonDev/oliveyoung-scraper-async/pyproject.toml",
+    "/Users/llnormll/PythonDev/oliveyoung-scraper-async/requirements.txt",
+    "/Users/llnormll/PythonDev/oliveyoung-scraper-async/categories.json",
+    "/Users/llnormll/PythonDev/oliveyoung-scraper-async/.gitignore",
+    "/Users/llnormll/PythonDev/oliveyoung-scraper-async/main.py",
+    "/Users/llnormll/PythonDev/oliveyoung-scraper-async/utils/__init__.py",
+    "/Users/llnormll/PythonDev/oliveyoung-scraper-async/utils/utility_functions.py",
+    "/Users/llnormll/PythonDev/oliveyoung-scraper-async/utils/logger.py"
+  ],
+  "gapsFromBrief": [
+    "Brief asked for dependencies on shared infra with sibling scrapers — bkurly-scraper-async exists at ~/PythonDev/bkurly-scraper-async but was not read (scope constraint). Shared DynamoDB region ap-southeast-1 and same S3 bucket pattern inferred from README but not confirmed against bkurly source. Content-agent should cross-reference once bkurly research is complete.",
+    "Brief asked to document schema-evidence pairs for a `bkurly-scraper` relation — that slug doesn't yet exist as an agent-docs entry; the `related` field can only reference it once the parallel research run produces a confirmed slug.",
+    "No .env.sample exists in the repository — the required env var names (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, S3_BUCKET_NAME) are documented in README only. Content-agent must use README as sole evidence source for config section.",
+    "The downstream consumer of DynamoDB data (which Postgres pipeline or dashboard reads OliveYoung_MetaData) is not documented in this repo. Relationship to product-db-pipeline or similar is inferred but unconfirmed."
+  ],
+  "recommendations": [
+    "Out-of-scope suggestion: pyproject.toml entry_point `scrape = \"main_v2:main\"` is broken (module renamed to main.py). Either delete the entry or update to `scrape = \"main:main\"` — currently `uv run scrape` will fail with ModuleNotFoundError.",
+    "Out-of-scope suggestion: No .env.sample committed. A sample file would eliminate the gap in the agent-docs config section and reduce onboarding friction.",
+    "Out-of-scope suggestion: SSL verification is fully disabled (CERT_NONE) for all aiohttp image downloads. This silences errors from expired CDN certs but also silently accepts MitM certificates. Consider using certifi bundle (same pattern as search-trend-scraper) instead.",
+    "Out-of-scope suggestion: pandas and selenium appear in pyproject.toml/requirements.txt but are unused in the active codebase. Removing them reduces the dependency surface and avoids future version-conflict noise."
+  ]
+}

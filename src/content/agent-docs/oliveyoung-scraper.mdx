@@ -1,0 +1,197 @@
+---
+slug: oliveyoung-scraper
+kind: pipeline
+displayName: Olive Young Scraper
+tagline: Async Playwright pipeline that collects Olive Young skincare product metadata and images, writing structured records to DynamoDB and JPEG assets to S3
+
+documentedBy: MotherMind
+documentedAt: 2026-04-23
+lastVerified: 2026-04-23
+sourceRepo: ~/PythonDev/oliveyoung-scraper-async
+sourcePath: main.py
+
+tags:
+  - python
+  - scraping
+  - pipeline
+  - playwright
+  - dynamodb
+  - s3
+  - k-beauty
+  - asyncio
+
+techStack:
+  primary:
+    - Python 3.9+
+    - asyncio
+  infra:
+    - AWS DynamoDB (OliveYoung_MetaData table)
+    - "AWS S3 (S3_BUCKET_NAME env var)"
+  libs:
+    - "playwright>=1.45.0 — headless Chromium automation for product pages and category pagination"
+    - "aiohttp>=3.10.0 — async image downloads from CDN URLs"
+    - "aioboto3>=13.1.0 — async AWS S3 + DynamoDB client (uploads, queries, existence checks)"
+    - "boto3>=1.34.0 — sync fallback AWS client (used transitionally in utility_functions.py)"
+    - "beautifulsoup4>=4.12.0 — HTML parsing for category product URL extraction"
+    - "pillow>=10.4.0 — image resizing, RGB conversion, and vertical stitch of detail images"
+    - "rich>=13.0.0 — Rich console output, progress bars, summary tables"
+    - "python-dotenv>=1.0.0 — loads .env for AWS credentials"
+    - "pandas>=2.2.0 — listed in pyproject.toml but not used in main.py or utils (likely legacy)"
+
+dependencies:
+  - name: DatabaseHandler
+    path: utils/utility_functions.py
+    kind: module
+    role: Provides async aioboto3 DynamoDB + S3 operations — existence checks, item insertion, and image uploads used throughout the per-product pipeline.
+  - name: PreProcessor
+    path: utils/utility_functions.py
+    kind: module
+    role: Text cleaning and Pillow-based vertical image stitch of detail images before S3 upload.
+  - name: ScraperLogger
+    path: utils/logger.py
+    kind: module
+    role: Rich console output and daily CSV log files written to logs/.
+  - name: categories.json
+    path: categories.json
+    kind: config
+    role: Contains 23 Olive Young dispCatNo category IDs that define the full scrape universe; loaded at startup.
+  - name: progress.json
+    path: progress.json
+    kind: config
+    role: Runtime checkpoint file tracking completed_categories and failed_categories arrays; created and updated during each run to enable resume.
+  - name: OliveYoung_MetaData
+    kind: service
+    role: DynamoDB table receiving all scraped product records; composite key itemId (partition) + category2 (sort).
+  - name: AWS_CREDENTIALS
+    kind: config
+    role: "AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, and S3_BUCKET_NAME loaded from .env via python-dotenv; documented in README.md only (no .env.sample exists)."
+
+commands:
+  - id: help
+    invocation: python main.py --help
+    purpose: Show all CLI flags and usage examples.
+    verified: false
+  - id: run-default
+    invocation: python main.py
+    purpose: Default parallel run with 5 concurrent workers and 1s async delay; resumes from progress.json.
+    verified: false
+  - id: run-light-parallel
+    invocation: python main.py --parallel 2 --async-delay 2
+    purpose: Light parallel mode with 2 concurrent workers and 2s inter-product delay.
+    verified: false
+  - id: run-sync
+    invocation: python main.py --sync --delay 3
+    purpose: Synchronous mode scraping one product at a time with 3s delay.
+    verified: false
+  - id: status
+    invocation: python main.py --status
+    purpose: Print progress summary (completed/failed/remaining categories) without scraping.
+    verified: false
+  - id: reset
+    invocation: python main.py --reset
+    purpose: Delete progress.json to start a fresh monthly run.
+    verified: false
+  - id: retry-failed
+    invocation: python main.py --retry-failed
+    purpose: Re-run only categories marked as failed in progress.json.
+    verified: false
+  - id: limit
+    invocation: python main.py --limit 50
+    example: python main.py --limit 50
+    purpose: Cap total products scraped across all categories (0 = no limit).
+    verified: false
+    args:
+      - name: --limit
+        required: false
+        description: "Maximum number of products to scrape. 0 means no limit."
+
+mechanisms:
+  - id: category-level-progress
+    claim: Progress is checkpointed at category granularity (not per-product); per-product deduplication is re-run against DynamoDB and S3 on every resume.
+    invariant: No extra per-product state file is needed; safe reruns are ensured by re-checking DynamoDB and S3 existence on each product.
+    evidence: "main.py:72-96, main.py:827-842"
+    rationale: Avoids persisting a per-product checkpoint file; instead deduplication against DynamoDB is re-run per product on resume so no extra state file is needed.
+  - id: triple-existence-dedup
+    claim: Before any network work, the scraper checks DynamoDB AND both S3 keys (main + detail) and skips the product entirely if all three exist.
+    invariant: Safe reruns mid-catalog without re-uploading images or re-inserting DB records.
+    evidence: main.py:421-429
+    rationale: Allows safe reruns mid-catalog without re-uploading images or re-inserting DB records.
+  - id: shared-browser-context
+    claim: A single Playwright browser context is shared across all category crawls; per-product pages are opened and closed inside the scrape_product wrapper.
+    invariant: Browser launch overhead is paid once; per-page isolation is preserved for parallel tasks.
+    evidence: "main.py:756-818, main.py:527-546"
+    rationale: Reduces browser launch overhead while keeping per-page isolation for parallel tasks.
+  - id: detail-image-stitch
+    claim: Detail images are scrolled from #tab-panels, downloaded individually via aiohttp, then stitched vertically into a single JPEG before S3 upload.
+    invariant: One composite image per product replaces many individual detail images in S3.
+    evidence: "main.py:274-306, main.py:449-462, utils/utility_functions.py:178-211"
+    rationale: Single composite image is cheaper to store and retrieve than many individual detail images.
+  - id: anti-detection-stealth
+    claim: Browser is launched with --disable-blink-features=AutomationControlled and stealth JS overrides for navigator.webdriver, navigator.plugins, navigator.languages, and window.chrome; user-agent spoofed as Chrome 120 on Windows 10; locale ko-KR; timezone Asia/Seoul.
+    evidence: main.py:756-815
+    rationale: Reduces detection probability on the Olive Young site.
+  - id: captcha-pause
+    claim: CAPTCHA handling detects 6 selector patterns and pauses 30s for manual intervention if any are found.
+    evidence: main.py:485-509
+  - id: image-retry-backoff
+    claim: aiohttp image downloads retry up to 3 times with exponential backoff (2^attempt seconds sleep) on failure.
+    evidence: main.py:349-360
+  - id: s3-key-pattern
+    claim: "S3 key pattern for main product images is images/olive_young/product_main/{category_id[:-4]}/{category_id[-4:]}/{item_id}.jpg"
+    evidence: main.py:418-419
+  - id: hardcoded-dynamodb-table
+    claim: DynamoDB table name 'OliveYoung_MetaData' is hardcoded in OliveYoungScraper.__init__ and cannot be overridden via CLI or env var.
+    evidence: "main.py:144, utils/utility_functions.py:73-87"
+    rationale: No apparent rationale — likely an expedient choice.
+
+status:
+  stage: active
+  lastCommitAt: 2026-01-30
+  knownIssues:
+    - id: broken-pyproject-entrypoint
+      description: "pyproject.toml entry point `scrape = \"main_v2:main\"` points to a module that no longer exists (file renamed to main.py); `uv run scrape` will fail with ModuleNotFoundError."
+      severity: medium
+      evidence: "pyproject.toml:21, main.py:1"
+      scope: this-doc
+    - id: ssl-verification-disabled
+      description: SSL certificate verification is fully disabled (check_hostname=False, CERT_NONE) for all aiohttp image downloads, silently accepting MitM certificates.
+      severity: medium
+      evidence: "main.py:258-261, main.py:343-346"
+      scope: this-doc
+    - id: hardcoded-dynamodb-table-name
+      description: DynamoDB table name 'OliveYoung_MetaData' is hardcoded and cannot be overridden via CLI or env var.
+      severity: medium
+      evidence: main.py:144
+      scope: this-doc
+    - id: pandas-dead-dependency
+      description: "pandas>=2.2.0 is listed in pyproject.toml but not imported in main.py or utils/; adds install weight for no benefit."
+      severity: low
+      evidence: "pyproject.toml:10"
+      scope: this-doc
+    - id: selenium-dead-dependency
+      description: selenium is listed in requirements.txt but not in pyproject.toml and not used in main.py or utils/.
+      severity: low
+      evidence: requirements.txt:5
+      scope: this-doc
+
+scope:
+  inDoc:
+    - Entry point CLI (main.py) and all argparse flags (--parallel, --async-delay, --sync, --delay, --status, --reset, --retry-failed, --limit).
+    - Concurrency model (asyncio.Semaphore default 5 workers, async delay, sync fallback mode).
+    - Anti-detection strategy (stealth JS, user-agent spoof, CAPTCHA pause-for-manual-intervention).
+    - Category crawl flow (categories.json input, BeautifulSoup URL extraction, pagination up to 20 pages).
+    - Per-product pipeline (DynamoDB + S3 existence check, main image download, detail image scroll + stitch, S3 upload, DynamoDB insert).
+    - Resume and retry logic (progress.json category-level checkpoint, --retry-failed, product-level dedup via DynamoDB + S3).
+    - Output schema (DynamoDB table OliveYoung_MetaData composite key, S3 key pattern, daily CSV logs).
+    - Dependency sketch (DatabaseHandler, PreProcessor, ScraperLogger, categories.json, progress.json, AWS config).
+    - Known issues (broken entry point, SSL disabled, hardcoded table name, dead deps).
+  outOfScope:
+    - Downstream consumers of OliveYoung_MetaData in DynamoDB (not documented in this repo).
+    - Shared infra overlap with bkurly-scraper-async (inferred from README but not confirmed against bkurly source).
+    - AWS credential provisioning, IAM policy requirements, and DynamoDB table DDL setup.
+    - ScraperLogger CSV log format and log rotation behavior (utils/logger.py internals).
+
+related:
+  - slug: bkurly-scraper
+    relation: sibling K-Beauty scraper; shares AWS DynamoDB region (ap-southeast-1) and S3 bucket pattern (images/{brand}/product_main/, images/{brand}/product_detail/)
+---

@@ -1,0 +1,76 @@
+{
+  "slug": "oliveyoung-scraper",
+  "mdxPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/src/content/agent-docs/oliveyoung-scraper.mdx",
+  "validatedAt": "2026-04-23T00:00:00+09:00",
+  "passed": true,
+  "checks": {
+    "schemaConformance": {
+      "pass": true,
+      "issues": []
+    },
+    "evidenceResolution": {
+      "pass": true,
+      "issues": [
+        {
+          "severity": "note",
+          "check": "evidenceResolution",
+          "detail": "knownIssues[pandas-dead-dependency].evidence was 'pyproject.toml:8' but line 8 is 'requests>=2.32.0'; pandas>=2.2.0 is on line 10. Fixed in-place to 'pyproject.toml:10'.",
+          "location": "status.knownIssues[pandas-dead-dependency].evidence"
+        }
+      ]
+    },
+    "commandVerification": {
+      "pass": true,
+      "verified": 0,
+      "flagged": 1,
+      "issues": [
+        {
+          "severity": "note",
+          "check": "commandVerification",
+          "detail": "commands[help].invocation 'python main.py --help' fails with the system Python (botocore.context missing in base environment). Succeeds with project venv (.venv/bin/python main.py --help, exit 0). Bare 'python' invocation is not executable without venv activation, so verified downgraded from true to false. The flags and behavior are confirmed correct.",
+          "location": "commands[help].verified"
+        }
+      ]
+    },
+    "crossReferenceIntegrity": {
+      "pass": true,
+      "issues": []
+    },
+    "freshness": {
+      "pass": true,
+      "ageDays": 0
+    }
+  },
+  "inPlaceFixesApplied": [
+    {
+      "field": "status.knownIssues[pandas-dead-dependency].evidence",
+      "before": "pyproject.toml:8",
+      "after": "pyproject.toml:10",
+      "reason": "Off-by-one: line 8 is 'requests>=2.32.0'; pandas>=2.2.0 is on line 10. Content clearly matches claim."
+    },
+    {
+      "field": "commands[help].verified",
+      "before": "true",
+      "after": "false",
+      "reason": "Bare 'python main.py --help' fails without venv activation (botocore.context missing in system Python). Command is valid inside .venv but cannot be verified as written."
+    }
+  ],
+  "issuesFlagged": [
+    {
+      "severity": "note",
+      "check": "evidenceResolution",
+      "detail": "pandas-dead-dependency evidence corrected from pyproject.toml:8 to pyproject.toml:10 (off-by-one). Fixed in-place.",
+      "location": "status.knownIssues[pandas-dead-dependency].evidence"
+    },
+    {
+      "severity": "note",
+      "check": "commandVerification",
+      "detail": "commands[help] verified downgraded true->false. Invocation works inside project venv but fails with system Python. Recommend adding venv activation note or updating invocation to '.venv/bin/python main.py --help'.",
+      "location": "commands[help].verified"
+    }
+  ],
+  "recommendations": [
+    "Update commands[help].invocation to '.venv/bin/python main.py --help' (or prefix with 'source .venv/bin/activate &&') so the invocation is self-contained and can be re-marked verified: true.",
+    "Review dependencies[OliveYoung_MetaData].kind: 'postgres-table' is semantically wrong for a DynamoDB table — schema enum lists 'module | postgres-table | service | config'. Operator should decide whether to update the schema enum or change this entry's kind to 'service'."
+  ]
+}

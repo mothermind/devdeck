@@ -1,9 +1,12 @@
 ---
 interface Props {
   title?: string;
-  agentDocsSlug?: string;
+  agentDocsSlug?: string | string[];
 }
 const { title = 'DevDeck', agentDocsSlug } = Astro.props;
+const agentSlugs = agentDocsSlug
+  ? (Array.isArray(agentDocsSlug) ? agentDocsSlug : [agentDocsSlug])
+  : [];
 ---
 
 <!DOCTYPE html>
@@ -19,14 +22,14 @@ const { title = 'DevDeck', agentDocsSlug } = Astro.props;
       rel="stylesheet"
     />
     <title>{title === 'DevDeck' ? 'DevDeck' : `${title} · DevDeck`}</title>
-    {agentDocsSlug && (
+    {agentSlugs.map(slug => (
       <link
         rel="alternate"
         type="application/json"
-        href={`/api/docs/${agentDocsSlug}.json`}
+        href={`/api/docs/${slug}.json`}
         title="Agent-readable spec (JSON)"
       />
-    )}
+    ))}
   </head>
   <body>
     <slot />

@@ -1,0 +1,48 @@
+{
+  "project": {
+    "slug": "bkurly-scraper",
+    "path": "~/PythonDev/bkurly-scraper-async",
+    "displayName": "Beauty Kurly Scraper",
+    "tagline": null
+  },
+  "scope": "project",
+  "kind": null,
+  "docStyle": {
+    "type": "pipeline-or-cli-tbd",
+    "depth": "intermediate",
+    "emphasis": [
+      "what is being scraped (site, product universe, data shape)",
+      "entry points (CLI scripts, scheduled runs, parameters)",
+      "concurrency model (asyncio semaphore limits, batch sizes, backoff strategy)",
+      "rate-limiting / anti-bot handling (user-agents, proxy, sleeps, retry policy)",
+      "output destination (CSV, S3, Postgres, JSON on disk — what lands where)",
+      "dependencies on shared infra (database, S3, secrets) and on sibling scrapers",
+      "schema-evidence pairs the validator can resolve to file:line"
+    ],
+    "skip": [
+      ".env and secrets",
+      "venv/ and __pycache__/",
+      "experimental / commented-out blocks",
+      "generated CSV outputs / cached HTML"
+    ]
+  },
+  "pages": [
+    {
+      "slug": "bkurly-scraper",
+      "purpose": "Project-scoped agent-docs entry for the Beauty Kurly async scraper. Frontmatter-only, conformant to docs/AGENT_DOCS_SCHEMA.md v0.2."
+    }
+  ],
+  "voice": {
+    "framing": "B-agent-collaborative",
+    "narrator": "third-person-system-description",
+    "metaNotes": "not-in-body-only-in-frontmatter"
+  },
+  "references": {
+    "similarTo": ["search-trend-scraper", "oliveyoung-scraper"],
+    "contrastWith": [],
+    "note": "Sibling scraper in the K-Beauty pipeline. The other (oliveyoung-scraper) is being documented in parallel — likely related via shared downstream DB / S3 layout. Cross-link them via `related[]`. Calibrate shape against src/content/agent-docs/search-trend-scraper.mdx."
+  },
+  "provisional": false,
+  "createdAt": "2026-04-23T00:00:00Z",
+  "createdBy": "MotherMind"
+}
