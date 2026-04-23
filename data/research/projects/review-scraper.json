@@ -1,0 +1,194 @@
+{
+  "projectSlug": "review-scraper",
+  "projectPath": "/Users/llnormll/PythonDev/review-scraper-async",
+  "briefPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/review-scraper.json",
+  "generatedAt": "2026-04-23T09:00:00+09:00",
+  "findings": {
+    "purpose": "Async Playwright scraper that reads active Olive Young product URLs from a versioned PostgreSQL table (product_raw_{version}), paginates through each product's review section, and writes review rows to S3 as Snappy-compressed Parquet in batches of 200, with a DynamoDB-backed cutoff per product to skip already-ingested reviews.",
+    "techStack": {
+      "primary": ["Python 3.11+", "asyncio"],
+      "infra": [
+        "AWS RDS PostgreSQL (source: product_raw_{version} table via TableVersionManager)",
+        "AWS DynamoDB (per-product latest-review-date cutoff, table configured via settings)",
+        "AWS S3 (Parquet output, bucket: trendmix, prefix: data/reviews/raw/)",
+        "Playwright Chromium (headless by default, JS/Shadow DOM review extraction)"
+      ],
+      "keyLibs": [
+        "playwright>=1.57.0 — async browser automation for OY review pages and Shadow DOM traversal",
+        "beautifulsoup4>=4.14.3 — fallback HTML parsing for legacy OY page structure",
+        "pyarrow>=23.0.0 — Parquet serialization with Snappy compression",
+        "boto3>=1.42.37 — S3 and DynamoDB client (sync, not aioboto3)",
+        "pandas<3 — DataFrame assembly, date parsing",
+        "sqlalchemy>=2.0.46 — PostgreSQL reads via DatabaseHandler",
+        "psutil>=7.2.2 — CPU monitoring for adaptive throttling",
+        "pydantic-settings>=2.8.0 — Settings model (.env loading)",
+        "rich>=14.3.1 — console progress bars and banners",
+        "numpy>=2.4.1 — fill NaN for missing ratings"
+      ]
+    },
+    "architecture": "Single-file pipeline (main.py, ~1,190 lines) with supporting modules under utils/ and database/. At startup main() reads the active versioned product table (product_raw_{version}) from AWS RDS via TableVersionManager.get_active_table('product_raw'), filters to is_active=True rows, then queries DynamoDB for the most-recently-scraped review date per item_id — used as a per-product cutoff to avoid re-scraping old reviews. In production mode, an S3 resume check (get_processed_items_from_s3) also skips items already present in today's output prefix. A Playwright Chromium context is created once with ko-KR locale, Seoul timezone, and a real-UA stealth init script. All products are enqueued as asyncio tasks; a Semaphore(MAX_CONCURRENCY=2) gates active concurrency. Each worker delays RATE_LIMIT (6 s) + jitter before opening a page, then calls adaptive_throttle() which reads CPU via psutil and extends the delay by 10 s (>80% CPU) or 30 s (>95% CPU). Inside scrape_oy_data(), the scraper first checks for the 2025 OY Shadow DOM redesign (oy-review-review-in-product custom element); if Shadow DOM reviews are present it uses scroll-based virtual-list accumulation with a dict keyed on date+text[:50] to deduplicate; otherwise it falls back to legacy BeautifulSoup pagination via numbered next-page selectors. Results accumulate in-memory; every BATCH_SIZE (200) products the batch is flushed to S3 as scraper_results_{N}_{date}.parquet and a _manifest.json is updated incrementally. A BATCH_COOLDOWN_SECONDS (30 s) pause with additional CPU-recovery waits runs between batches. A final partial batch is flushed at end. The manifest is finalized with summary totals. database/connector.py (DatabaseHandler) provides read_table_from_rds and a upsert utility (unused by the main scrape path). utils/tbl_version_manager.py (TableVersionManager) queries the table_versions registry table to resolve the active product_raw version name at runtime.",
+    "keyCommands": [
+      {
+        "cmd": "python main.py",
+        "purpose": "Full production run — reads product list from RDS, scrapes OY reviews, uploads Parquet batches + manifest to S3",
+        "verified": true
+      },
+      {
+        "cmd": "python main.py --dry-run",
+        "purpose": "Test mode — skips S3 upload, saves Parquet + JSON + manifest locally under dry_run_output/{date_str}/",
+        "verified": true
+      },
+      {
+        "cmd": "python main.py --dry-run --limit 10",
+        "purpose": "Minimal smoke test — processes only the first 10 products locally",
+        "verified": true
+      },
+      {
+        "cmd": "python main.py --run-id 260201 --cutoff 260101",
+        "purpose": "Resume a previously started run (YYMMDD run_id) with a manual cutoff date for items lacking a DynamoDB entry",
+        "verified": true
+      },
+      {
+        "cmd": "python main.py --no-headless",
+        "purpose": "Run with a visible browser window for debugging review page interactions",
+        "verified": true
+      }
+    ],
+    "notableDecisions": [
+      {
+        "decision": "Dual extraction strategy: Shadow DOM scroll-accumulation (2025 OY redesign) with BeautifulSoup pagination fallback",
+        "rationale": "OY's 2025 redesign moved reviews into a virtualized Shadow DOM custom element (oy-review-review-in-product). Standard CSS selectors and pagination no longer work; the scraper detects which layout is live and routes accordingly.",
+        "evidence": "main.py:307-383 (Shadow DOM extraction), main.py:577-640 (legacy BeautifulSoup path)"
+      },
+      {
+        "decision": "DynamoDB per-product latest-date cutoff instead of full re-scrape",
+        "rationale": "Avoids re-ingesting reviews that are already downstream in the sentiment analysis pipeline; DynamoDB provides O(1) per-product lookups without a full table scan.",
+        "evidence": "main.py:47-71 (DynamoDBHandler.get_latest_date), main.py:937-954 (bulk prefetch into latest_dates dict)"
+      },
+      {
+        "decision": "BATCH_SIZE reduced from 500 to 200 to save progress more frequently",
+        "rationale": "Code comment explicitly notes reduced batch size for more frequent checkpointing. Also reduces memory held in the in-memory data dict between flushes.",
+        "evidence": "main.py:207 (comment: 'Reduced from 500 to save progress more frequently')"
+      },
+      {
+        "decision": "MAX_CONCURRENCY capped at 2 (down from 5) and RATE_LIMIT at 6 s with adaptive CPU throttling",
+        "rationale": "Code comments cite T3 CPU credit preservation as the reason for the conservative concurrency. psutil-based adaptive_throttle() adds further backpressure at 80% and 95% CPU thresholds.",
+        "evidence": "main.py:200-208 (constants block with comments), main.py:218-238 (adaptive_throttle)"
+      },
+      {
+        "decision": "Manifest written incrementally after every batch rather than once at the end",
+        "rationale": "If the run crashes mid-way, the manifest reflects completed batches and can be used for resumption via --run-id.",
+        "evidence": "main.py:1060-1066 (dry-run manifest write), main.py:1065-1066 (S3 manifest write per batch)"
+      },
+      {
+        "decision": "S3 bucket name 'trendmix' hardcoded in main() call site despite Settings.s3_bucket_name env var",
+        "rationale": "No rationale found; the S3Handler class accepts bucket_name from settings by default, but main() passes it as a literal string. This appears to be an oversight — a known issue.",
+        "evidence": "main.py:915 (S3Handler(bucket_name='trendmix', ...) overrides settings)"
+      }
+    ],
+    "currentStatus": "dormant — last commit 2026-02-04",
+    "entryPoints": ["main.py"],
+    "dataFlow": "PostgreSQL product_raw_{version} table (via TableVersionManager) → filter is_active=True → DynamoDB cutoff prefetch per item_id → (production: S3 resume check filters already-processed items) → asyncio task queue gated by Semaphore(2) → per-product: Playwright navigates to oliveyoung.co.kr product page → click review tab → detect Shadow DOM vs legacy → accumulate reviews newer than DynamoDB cutoff → return {date, rating, review, group_id} → every 200 products: create_dataframe() → to_parquet(engine=pyarrow, compression=snappy) → S3 put_object under data/reviews/raw/{YYMMDD}/scraper_results_{N}_{date}.parquet → update _manifest.json incrementally → batch cooldown → repeat → final partial batch flush → finalize manifest with summary totals"
+  },
+  "perPage": [
+    {
+      "pageSlug": "review-scraper",
+      "contentPointers": [
+        {
+          "claim": "Reads active product list from versioned PostgreSQL table product_raw_{version} via TableVersionManager",
+          "evidence": "main.py:924-927 (version_manager.get_active_table('product_raw'), db_conn.read_table_from_rds(active_table))"
+        },
+        {
+          "claim": "DynamoDB used as per-product review-date cutoff store; latest_dates dict built before scraping begins",
+          "evidence": "main.py:937-954 (DynamoDB prefetch loop)"
+        },
+        {
+          "claim": "asyncio.Semaphore(2) gates concurrency; each worker applies 6 s + random jitter delay before page open",
+          "evidence": "main.py:989 (semaphore = asyncio.Semaphore(MAX_CONCURRENCY)), main.py:1002-1009 (worker fn)"
+        },
+        {
+          "claim": "Dual extraction: Shadow DOM scroll-accumulation for 2025 OY redesign, BeautifulSoup pagination for legacy",
+          "evidence": "main.py:428-429 (initial_reviews = await extract_reviews_from_shadow_dom(page)), main.py:577 (legacy path)"
+        },
+        {
+          "claim": "Shadow DOM extraction traverses oy-review-review-in-product custom element recursively, accumulates via scroll with date+text[:50] dedup key",
+          "evidence": "main.py:307-383 (extract_reviews_from_shadow_dom JS evaluate), main.py:498-546 (scroll loop + accumulated_reviews dict)"
+        },
+        {
+          "claim": "Output Parquet schema: date, item_id, group_id, rating, review_text — Snappy compressed via PyArrow",
+          "evidence": "main.py:800-806 (DataFrame columns), main.py:112 (compression='snappy')"
+        },
+        {
+          "claim": "BATCH_SIZE is currently 200 (not 500); batch comment confirms intentional reduction for more frequent checkpointing",
+          "evidence": "main.py:207"
+        },
+        {
+          "claim": "S3 destination layout: data/reviews/raw/{YYMMDD}/scraper_results_{N}_{YYMMDD}.parquet",
+          "evidence": "main.py:105-107 (parquet_filename and s3_key construction)"
+        },
+        {
+          "claim": "_manifest.json written to same S3 prefix incrementally after every batch; includes files[], summary totals, date_range per file",
+          "evidence": "main.py:138-151 (save_manifest), main.py:1060-1066 (incremental write), main.py:1135-1155 (final manifest)"
+        },
+        {
+          "claim": "Adaptive CPU throttling via psutil: 10 s delay above 80%, 30 s above 95%; additional inter-batch cooldown 30 s with CPU-recovery extension",
+          "evidence": "main.py:218-238 (adaptive_throttle), main.py:242-263 (batch_cooldown)"
+        },
+        {
+          "claim": "Retry wrapper uses exponential backoff (2^attempt seconds) up to MAX_RETRIES=5",
+          "evidence": "main.py:296-304 (retry_async)"
+        },
+        {
+          "claim": "Stealth: navigator.webdriver overridden, window.chrome injected, locale set ko-KR, UA mimics macOS Chrome 120",
+          "evidence": "main.py:278-292 (context.add_init_script and context settings)"
+        },
+        {
+          "claim": "S3 bucket name 'trendmix' is hardcoded in main() call site, overriding the Settings.s3_bucket_name env var",
+          "evidence": "main.py:915"
+        },
+        {
+          "claim": "No .env.sample present — env var names must be inferred from config/settings.py",
+          "evidence": "config/settings.py:1-17 (Settings fields: database_url, aws_access_key_id, aws_secret_access_key, aws_default_region, s3_bucket_name, dynamodb_table_name)"
+        },
+        {
+          "claim": "scrape_bk_data() (Beauty Kurly review extraction) is fully commented out; only OY source is scraped",
+          "evidence": "main.py:656-730 (commented-out bk block), main.py:743-747 (non-OY source returns Skipped)"
+        }
+      ],
+      "suggestedSections": [
+        "What it does — one-paragraph system description",
+        "Data source — product_raw versioned table from PostgreSQL (shared with sibling scrapers)",
+        "Scraping mechanics — Shadow DOM vs legacy dual strategy, scroll-based virtual list accumulation",
+        "Concurrency and rate-limiting — asyncio Semaphore(2), jitter, adaptive CPU throttling, batch cooldown",
+        "Output — Parquet schema, batch size (200), S3 layout, _manifest.json contract",
+        "Incremental runs — DynamoDB cutoff per product, S3 resume check, --run-id + --cutoff flags",
+        "Known issues — hardcoded S3 bucket name, no .env.sample, Beauty Kurly path commented out",
+        "Related projects"
+      ]
+    }
+  ],
+  "filesRead": [
+    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/review-scraper.json",
+    "/Users/llnormll/PythonDev/review-scraper-async/main.py",
+    "/Users/llnormll/PythonDev/review-scraper-async/pyproject.toml",
+    "/Users/llnormll/PythonDev/review-scraper-async/.gitignore",
+    "/Users/llnormll/PythonDev/review-scraper-async/config/settings.py",
+    "/Users/llnormll/PythonDev/review-scraper-async/database/connector.py",
+    "/Users/llnormll/PythonDev/review-scraper-async/utils/tbl_version_manager.py",
+    "/Users/llnormll/PythonDev/review-scraper-async/utils/logger_config.py",
+    "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/research/projects/bkurly-scraper.json"
+  ],
+  "gapsFromBrief": [
+    "Brief lists sourceRepo as ~/PythonDev/review-scrapper-async (double-p typo). The actual directory is ~/PythonDev/review-scraper-async (single p). Content-agent should use ~/PythonDev/review-scraper-async for sourceRepo.",
+    "Brief's emphasis mentions 'batches of 500' for Parquet output. The code currently uses BATCH_SIZE=200 with an explicit comment 'Reduced from 500 to save progress more frequently' (main.py:207). The 500 figure was the historical value, not the current one. Content-agent must use 200.",
+    "DynamoDB table name is not hard-coded — it is read from Settings.dynamodb_table_name (env var). The actual table name in production cannot be confirmed without reading .env, which is excluded per brief. Brief did not ask for the exact DynamoDB table name, so this is not a blocking gap.",
+    "The apify-actor/ directory contains an Apify-based alternative actor (Dockerfile, main_old.py, etc.) but is in .gitignore and appears to be an experimental dead branch. Brief says to skip experimental/commented-out blocks — flagging existence only, not documenting its contents.",
+    "No .env.sample file exists in the project. Env var names are only discoverable from config/settings.py (which is documented above). Ayden should add one before publishing docs — or at minimum the docs should list the six required vars explicitly."
+  ],
+  "recommendations": [
+    "Add a .env.sample with the six required keys (DATABASE_URL, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, S3_BUCKET_NAME, DYNAMODB_TABLE_NAME) — the hardcoded 'trendmix' bucket in main.py:915 will then also become a visible discrepancy that can be fixed.",
+    "The hardcoded bucket name 'trendmix' on main.py:915 bypasses the S3_BUCKET_NAME env var; it should read settings.s3_bucket_name instead.",
+    "README.md is empty — a minimal project description and run instructions would reduce friction for DevDeck readers who want to verify claims.",
+    "BATCH_SIZE was noted as intentionally reduced for T3 CPU preservation; if the pipeline ever runs on a beefier instance the constant and its comment should be revisited alongside MAX_CONCURRENCY."
+  ]
+}

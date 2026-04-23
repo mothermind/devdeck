@@ -9,11 +9,12 @@ interface Props {
   showToc?: boolean;
   wide?: boolean;
   agentDocsSlug?: string | string[];
+  pipelineManifest?: string;
 }
-const { title, showToc = true, wide = false, agentDocsSlug } = Astro.props;
+const { title, showToc = true, wide = false, agentDocsSlug, pipelineManifest } = Astro.props;
 ---
 
-<Base title={title} agentDocsSlug={agentDocsSlug}>
+<Base title={title} agentDocsSlug={agentDocsSlug} pipelineManifest={pipelineManifest}>
   <Header />
 
   <div class="shell">

@@ -3,8 +3,8 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 import PageHeader from '../../components/PageHeader.astro';
 ---
 
-<DocsLayout title="Scrapers" agentDocsSlug={["oliveyoung-scraper", "bkurly-scraper"]}>
-  <PageHeader title="Scrapers Guide" tags={["3 scrapers", "EC2: t3.medium", "Region: ap-northeast-2"]} agentDocsSlug={["oliveyoung-scraper", "bkurly-scraper"]} />
+<DocsLayout title="Scrapers" agentDocsSlug={["oliveyoung-scraper", "bkurly-scraper", "review-scraper"]}>
+  <PageHeader title="Scrapers Guide" tags={["3 scrapers", "EC2: t3.medium", "Region: ap-northeast-2"]} agentDocsSlug={["oliveyoung-scraper", "bkurly-scraper", "review-scraper"]} />
 
   <details>
     <summary>EC2 Instance Management</summary>
@@ -264,7 +264,7 @@ verbosity=Verbosity.QUIET</code></pre>
     <!-- ── Reviews ────────────────────────────────────────── -->
     <div class="tab-panel" id="tab-reviews" role="tabpanel">
       <p class="caption">review scraper - fetches reviews from oy products</p>
-      <p><code>review-scrapper-async</code> <a href="https://github.com/cch0213/review-scrapper-async" target="_blank">GitHub ↗</a></p>
+      <p><code>review-scraper-async</code> <a href="https://github.com/cch0213/review-scraper-async" target="_blank">GitHub ↗</a></p>
 
       <div class="seg-bar">
         <button class="seg-btn active" data-seg="run" data-group="rv">Run</button>
@@ -278,36 +278,36 @@ verbosity=Verbosity.QUIET</code></pre>
 
       <div class="seg-panel active" id="seg-rv-run">
         <strong>Production Run</strong>
-        <pre><code>cd ~/review-scrapper-async && \
+        <pre><code>cd ~/review-scraper-async && \
 tmux new-session -d -s scraper 'uv run python main.py --cutoff 250418'</code></pre>
         <strong>With Cutoff Date</strong>
-        <pre><code>cd ~/review-scrapper-async && \
+        <pre><code>cd ~/review-scraper-async && \
 uv run python main.py --run-id 260130 --cutoff 250101</code></pre>
         <strong>Dry Run (Test)</strong>
-        <pre><code>cd ~/review-scrapper-async && \
+        <pre><code>cd ~/review-scraper-async && \
 uv run python main.py --run-id 260130 --dry-run --limit 10</code></pre>
       </div>
 
       <div class="seg-panel" id="seg-rv-status">
         <strong>Check Progress</strong>
         <p class="caption">Review scraper logs progress to CSV files</p>
-        <pre><code>tail -50 ~/review-scrapper-async/logs/review_2026-01-30.csv</code></pre>
+        <pre><code>tail -50 ~/review-scraper-async/logs/review_2026-01-30.csv</code></pre>
       </div>
 
       <div class="seg-panel" id="seg-rv-logs">
         <strong>View Today's Log</strong>
-        <pre><code>tail -f ~/review-scrapper-async/logs/review_2026-01-30.csv</code></pre>
+        <pre><code>tail -f ~/review-scraper-async/logs/review_2026-01-30.csv</code></pre>
         <strong>List All Logs</strong>
-        <pre><code>ls -la ~/review-scrapper-async/logs/</code></pre>
+        <pre><code>ls -la ~/review-scraper-async/logs/</code></pre>
       </div>
 
       <div class="seg-panel" id="seg-rv-deploy">
         <strong>Pull Latest</strong>
-        <pre><code>cd ~/review-scrapper-async && git pull origin main</code></pre>
+        <pre><code>cd ~/review-scraper-async && git pull origin main</code></pre>
         <strong>Sync Dependencies</strong>
-        <pre><code>cd ~/review-scrapper-async && uv sync</code></pre>
+        <pre><code>cd ~/review-scraper-async && uv sync</code></pre>
         <strong>Full Redeploy</strong>
-        <pre><code>cd ~/review-scrapper-async && \
+        <pre><code>cd ~/review-scraper-async && \
 git pull origin main && \
 uv sync</code></pre>
       </div>
@@ -329,7 +329,7 @@ uv sync</code></pre>
 
       <div class="seg-panel" id="seg-rv-info">
         <strong>Project Structure</strong>
-        <pre><code>review-scrapper-async/
+        <pre><code>review-scraper-async/
 ├── main.py                 # Main scraping logic
 ├── pyproject.toml          # uv project config
 ├── .env                    # AWS credentials (git-ignored)

@@ -1,0 +1,222 @@
+{
+  "projectSlug": "product-db-pipeline",
+  "projectPath": "/Users/llnormll/PythonDev/product-db-pipeline",
+  "briefPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/product-db-pipeline.json",
+  "generatedAt": "2026-04-23T00:00:00Z",
+  "findings": {
+    "purpose": "A 7-stage Python pipeline that ingests K-Beauty product metadata from OliveYoung and Beauty Kurly (via DynamoDB), groups similar products using BERT + DBSCAN clustering, extracts text from product images via Google Cloud Vision OCR, runs AI-powered feature analysis using OpenAI GPT models (o4-mini), and writes versioned PostgreSQL tables (product_raw, product_analysis, product_service) for downstream analytics.",
+    "techStack": {
+      "primary": ["Python 3.8+", "asyncio"],
+      "infra": [
+        "AWS RDS PostgreSQL (ap-southeast-1)",
+        "AWS DynamoDB",
+        "AWS S3 (bucket: trendmix)",
+        "Google Cloud Vision API",
+        "OpenAI API (o4-mini / gpt-4o-mini)"
+      ],
+      "keyLibs": [
+        "pandas 2.2.2",
+        "SQLAlchemy 2.0.41",
+        "boto3 1.34.131 / aioboto3 13.1.1",
+        "transformers 4.53.0 (bert-base-multilingual-cased)",
+        "scikit-learn 1.7.0 (DBSCAN)",
+        "torch 2.7.1",
+        "fuzzywuzzy 0.18.0 / RapidFuzz 3.13.0",
+        "google-cloud-vision 3.10.2",
+        "openai (via KeywordExtractor)",
+        "python-dotenv 1.0.1",
+        "rich (PipelineLogger, progress bars)",
+        "aiohttp 3.10.0 / aiolimiter 1.2.1"
+      ]
+    },
+    "architecture": "The pipeline is orchestrated entirely by run_steps.py via the PipelineRunner class. Steps 1-7 are discrete methods on that class, each accepting optional DataFrame inputs or falling back to checkpoint CSVs in results/. Lazy-loaded imports keep startup fast. Between every step the runner calls save_checkpoint() to persist a CSV in results/checkpoint_{step_name}.csv, so any step can be re-entered from disk without re-running prior steps. TableVersionManager (utils/tbl_version_manager.py — documented separately as the table-manager entry) controls all versioned PostgreSQL table creation and activation; run_steps.py calls version_manager.get_active_table() and version_manager.create_versioned_table() at Steps 2, 4, 6, and 7. External API calls are async throughout: DynamoDB parallel segment scans (20 segments), S3 image fetches, Vision API calls via ThreadPoolExecutor, and OpenAI Batch API submission via KeywordExtractor + BatchJobManager. The non-blocking Step 5 pattern (submit_batches → check_status → retrieve_results) lets operators submit GPU-heavy batch jobs to OpenAI and close their laptops, checking status later.",
+    "keyCommands": [
+      {
+        "cmd": "python run_steps.py --step 1",
+        "purpose": "Load OliveYoung and BK metadata from DynamoDB into a combined, filtered checkpoint CSV.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step 2",
+        "purpose": "Clean product names (GPT), group with BERT+DBSCAN+fuzzy matching, select representatives, write product_raw versioned table.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step 3 [--from-db]",
+        "purpose": "Run Google Cloud Vision OCR on representative product images from S3, storing results in DynamoDB ItemKeywords tables.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step 4 [--from-db]",
+        "purpose": "Fetch product images from S3 (base64) and OCR keywords from DynamoDB, producing analysis-ready checkpoint.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step 5 --submit-only",
+        "purpose": "Submit AI analysis batches to OpenAI Batch API non-blockingly and return a session ID.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step 5 --check-status [--session-id ID]",
+        "purpose": "Poll batch job status from OpenAI for a given (or latest) session.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step 5 --retrieve [--session-id ID]",
+        "purpose": "Download completed OpenAI batch results, run option matching, and save to checkpoint.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step 5 --sample 10",
+        "purpose": "Run Step 5 in legacy blocking mode with a 10-item sample for local testing.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step 6",
+        "purpose": "Match AI answers to option texts, combine with existing product_analysis data, and create a new versioned product_analysis table.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step 7",
+        "purpose": "Compute item-level and group-level features (popularity_index, lifecycle_stage, vitality_score), write versioned product_service table.",
+        "verified": false
+      },
+      {
+        "cmd": "python run_steps.py --step all",
+        "purpose": "Run Steps 1-7 sequentially end-to-end.",
+        "verified": false
+      }
+    ],
+    "notableDecisions": [
+      {
+        "decision": "Checkpoint CSV files between every step, allowing re-entry at any stage without re-running upstream",
+        "rationale": "Long-running API calls (OCR, GPT) make full reruns prohibitively expensive; checkpoints let operators restart after failures.",
+        "evidence": "run_steps.py:67-80 (save_checkpoint / load_checkpoint)"
+      },
+      {
+        "decision": "Non-blocking OpenAI Batch API workflow for Step 5 (submit → check → retrieve) instead of blocking async loop",
+        "rationale": "Analysis of ~28K products would take hours in a blocking loop; Batch API lets the operator submit and disconnect.",
+        "evidence": "run_steps.py:495-573 (step5_submit_batches), run_steps.py:564-571 (YOU CAN NOW CLOSE YOUR LAPTOP message)"
+      },
+      {
+        "decision": "Hybrid BERT-embeddings + DBSCAN + fuzzy-matching for product grouping instead of purely string-based dedup",
+        "rationale": "K-Beauty product names include size variants, shade codes (15.1A vs 15.1B), and promotional suffixes that fool pure string matching; the hybrid handles semantic and string similarity together.",
+        "evidence": "src/preprocessing/metadata_preprocessor_async.py:17-19 (BERT + DBSCAN + fuzzywuzzy imports), PIPELINE_FLOWS.md:143-165 (Stage 4 flow)"
+      },
+      {
+        "decision": "OCR skip threshold: items with existing keywords >= 35 chars are not re-processed",
+        "rationale": "Incremental processing avoids redundant Vision API calls on already-extracted items.",
+        "evidence": "src/feature_extraction/ocr_extractor_async.py:116-117"
+      },
+      {
+        "decision": "TableVersionManager delegates all versioned-table lifecycle to a carved-out utility (documented as table-manager entry)",
+        "rationale": "Versioning logic is reusable across pipeline stages and warrants its own testable unit.",
+        "evidence": "run_steps.py:59-63 (version_manager property), src/database/tbl_version_manager.py (present but not re-documented here)"
+      }
+    ],
+    "currentStatus": "dormant — last commit 2026-02-20",
+    "entryPoints": [
+      "run_steps.py"
+    ],
+    "dataFlow": "DynamoDB (OliveYoung_MetaData + BK_MetaData) → Step 1 parallel segment scan → in-memory DataFrame → checkpoint_step1_metadata.csv → Step 2 BERT+DBSCAN grouping + representative selection → product_raw_{version} (PostgreSQL) + checkpoint_step2_grouped.csv → Step 3 Google Cloud Vision OCR on S3 images → DynamoDB (OliveYoung_ItemKeywords + BK_ItemKeywords) → Step 4 S3 image fetch + DynamoDB keyword fetch → checkpoint_step4_analysis_data.csv → Step 5 OpenAI Batch API (o4-mini) → results/final_results_{ts}.csv + checkpoint_step5_analysis_results.csv → Step 6 option matching + merge with existing product_analysis → product_analysis_{version} (PostgreSQL) → Step 7 feature engineering (popularity_index, lifecycle_stage, vitality_score) → product_service_{version} (PostgreSQL)"
+  },
+  "perPage": [
+    {
+      "pageSlug": "product-db-pipeline",
+      "contentPointers": [
+        {
+          "claim": "Orchestrator entry point is run_steps.py; PipelineRunner class owns all 7 step methods",
+          "evidence": "run_steps.py:39-1023"
+        },
+        {
+          "claim": "Step 1 performs parallel 20-segment DynamoDB scan of OliveYoung_MetaData and BK_MetaData, standardizes date formats to ISO 8601, maps BK brand IDs, filters by category_source table, deduplicates on itemId",
+          "evidence": "run_steps.py:87-180"
+        },
+        {
+          "claim": "Step 2 calls MetadataPreprocessor.process_updated_data() which chains GPT name cleaning (ProductNameCleaner), BERT embeddings (bert-base-multilingual-cased), DBSCAN clustering (eps=0.3, cosine metric), fuzzy matching (fuzzywuzzy, threshold 0.9), representative voting, then writes product_raw via DBConnector.update_product_raw_table()",
+          "evidence": "run_steps.py:185-278, src/preprocessing/metadata_preprocessor_async.py:29-46"
+        },
+        {
+          "claim": "Step 3 filters to is_representative==True rows, uses AsyncOCRExtractor with ThreadPoolExecutor(max_workers=5) calling google.cloud.vision ImageAnnotatorClient, skips items with existing DynamoDB keywords >= 35 chars, stores results in OliveYoung_ItemKeywords or BK_ItemKeywords",
+          "evidence": "run_steps.py:284-368, src/feature_extraction/ocr_extractor_async.py:28-139"
+        },
+        {
+          "claim": "Step 4 uses ImagePipeline.fetch_product_data() to fetch S3 images (base64) and OCR keywords from DynamoDB, maps category_id_main, skips group_ids already in active product_analysis table",
+          "evidence": "run_steps.py:373-490"
+        },
+        {
+          "claim": "Step 5 non-blocking path: KeywordExtractor.submit_batches() writes batch jobs to OpenAI Batch API and returns a session_id; status checked later via check_status(); results downloaded via retrieve_results() which also calls process_results_with_matching()",
+          "evidence": "run_steps.py:495-656, src/feature_extraction/keyword_extractor.py:31-44"
+        },
+        {
+          "claim": "KeywordExtractor loads category-specific question/option data from PostgreSQL (questions + options tables) and builds prompts using evaluation_criteria.json and common_prompt_v5.txt",
+          "evidence": "src/feature_extraction/keyword_extractor.py:37-91"
+        },
+        {
+          "claim": "Step 6 instantiates ProductAnalysisProcessor with active product_analysis table name, calls process_data_with_separate_rows() on new results, concatenates with existing data, creates a new versioned product_analysis table via TableVersionManager and activates it",
+          "evidence": "run_steps.py:813-911"
+        },
+        {
+          "claim": "Step 7 calls generate_features() (item-level: size_rounded, size_category, price_category, discount_percentage, price_per_unit, review_density, popularity_index) then transform_to_product_service() (group-level: lifecycle_stage, vitality_score, weighted_rating), writes versioned product_service table",
+          "evidence": "run_steps.py:916-1022, pipelines/feature_engineering_pipeline.py:85-200"
+        },
+        {
+          "claim": "popularity_index = log_normalize(review) * 0.3 + (rating/5) * 0.25 + log_normalize(review_density) * 0.2 + min_max_normalize(discount_pct) * 0.1 + min_max_normalize(days_since_reg) * 0.15",
+          "evidence": "pipelines/feature_engineering_pipeline.py:190-197"
+        },
+        {
+          "claim": "S3 bucket name 'trendmix' is hardcoded in db_connector.py (two locations)",
+          "evidence": "src/database/db_connector.py:119 and 312"
+        },
+        {
+          "claim": "CLI supports --from-db flag on Steps 3 and 4 to load from active product_raw PostgreSQL table instead of checkpoint CSV",
+          "evidence": "run_steps.py:1157-1160, run_steps.py:303-315"
+        },
+        {
+          "claim": "variables/.env.sample exists and documents the 6 required env vars",
+          "evidence": "variables/.env.sample:1-16"
+        }
+      ],
+      "suggestedSections": [
+        "Pipeline overview — purpose and what downstream systems consume the outputs",
+        "The 7 stages — one subsection per stage with input, mechanism, output, and evidence",
+        "Entry point and CLI — run_steps.py usage, all flags including Step 5 async workflow",
+        "External dependencies — Google Cloud Vision, OpenAI Batch API, DynamoDB tables, S3 bucket",
+        "Versioned PostgreSQL tables — product_raw / product_analysis / product_service and their relation to TableVersionManager",
+        "Checkpoint system — how CSV checkpoints enable per-step re-entry",
+        "Known issues and limitations",
+        "Related systems (upstream scrapers, downstream consumers)"
+      ]
+    }
+  ],
+  "filesRead": [
+    "data/briefs/product-db-pipeline.json",
+    "docs/AGENT_DOCS_SCHEMA.md",
+    "run_steps.py",
+    "README.md",
+    "PIPELINE_FLOWS.md",
+    "requirements.txt",
+    "variables/.env.sample",
+    ".gitignore",
+    "pipelines/batch_analysis_pipeline.py",
+    "pipelines/data_pipeline.py",
+    "pipelines/feature_engineering_pipeline.py (partial)",
+    "pipelines/product_analysis_processor.py (partial)",
+    "src/database/db_connector.py (partial)",
+    "src/feature_extraction/keyword_extractor.py (partial)",
+    "src/feature_extraction/ocr_extractor_async.py",
+    "src/preprocessing/metadata_preprocessor_async.py (partial)"
+  ],
+  "gapsFromBrief": [
+    "Brief asks to verify CLI commands (verified: true) — pipeline requires live DynamoDB + PostgreSQL + S3 + Google Vision + OpenAI credentials not available in this research context; all commands marked verified: false",
+    "Brief mentions `--target` and version args as CLI entry points — run_steps.py uses --step and --from-db but no --target or --version flag was found; PIPELINE_FLOWS.md and README do not mention them either. This may refer to TableVersionManager's own CLI (documented in src/database/TableVersionManagerCLI.md and covered by the table-manager agent-docs entry), not run_steps.py",
+    "The brief's emphasis list uses the term 'stage 1 data loading' through 'stage 7 feature engineering' — the actual run_steps.py and PIPELINE_FLOWS.md number the stages consistently as steps 1-7 with that same mapping, so no gap. However PIPELINE_FLOWS.md enumerates 9 stages (it splits grouping/name-cleaning and adds a Database Storage stage 9) while run_steps.py consolidates to 7; the 7-stage framing in the brief matches run_steps.py exactly",
+    "batch_job_manager.py (src/feature_extraction/batch_job_manager.py) was not read in detail — it is marked private (chmod 600); its API surface is accessed via KeywordExtractor.batch_manager and is secondary to the brief's focus"
+  ],
+  "recommendations": [
+    "The two GCP service account JSON files (variables/trendmix-f352cfcaf05f.json, variables/vision-test-app-363706-e9e75b6057bf.json) are present on disk but gitignored via the variables/ rule — safe from accidental commit, but the project ID 'vision-test-app-363706' is visible in PIPELINE_FLOWS.md:236 (public doc). This is a low-severity info-leak to flag in knownIssues.",
+    "S3 bucket name 'trendmix' is hardcoded in src/database/db_connector.py:119 and :312 rather than read from the S3_BUCKET_NAME env var that is already defined. This is inconsistent and should be a knownIssue.",
+    "run_pipeline.py (the original Prefect-orchestrated scraping orchestrator) is gitignored — it exists only locally. The agent-docs entry should note that scraping is handled by separate upstream projects (oliveyoung-scraper, bkurly-scraper) and that this repo covers only the post-scraping 7 stages.",
+    "The requirements.txt has two editable local installs (-e /Users/llnormll/PythonPackages/bkurly-scraper and -e /Users/llnormll/PythonPackages/oliveyoung-scraper) with absolute paths — these will silently fail for any other machine. Flag as a setup issue in knownIssues."
+  ]
+}

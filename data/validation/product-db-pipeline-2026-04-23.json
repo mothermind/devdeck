@@ -1,0 +1,70 @@
+{
+  "slug": "product-db-pipeline",
+  "mdxPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/src/content/agent-docs/product-db-pipeline.mdx",
+  "validatedAt": "2026-04-23T00:00:00+09:00",
+  "passed": true,
+  "checks": {
+    "schemaConformance": {
+      "pass": true,
+      "issues": []
+    },
+    "evidenceResolution": {
+      "pass": true,
+      "issues": [
+        {
+          "severity": "note",
+          "check": "evidenceResolution",
+          "detail": "knownIssues[gcp-project-id-leak].evidence cited PIPELINE_FLOWS.md:236; GCP project ID string 'vision-test-app-363706' is on line 237 (line 236 is the preceding bullet header). Auto-fixed to :237.",
+          "location": "status.knownIssues[gcp-project-id-leak].evidence"
+        }
+      ]
+    },
+    "commandVerification": {
+      "pass": true,
+      "verified": 0,
+      "flagged": 0,
+      "issues": []
+    },
+    "crossReferenceIntegrity": {
+      "pass": true,
+      "issues": []
+    },
+    "freshness": {
+      "pass": true,
+      "ageDays": 0
+    }
+  },
+  "inPlaceFixesApplied": [
+    {
+      "field": "status.knownIssues[gcp-project-id-leak].evidence",
+      "before": "PIPELINE_FLOWS.md:236",
+      "after": "PIPELINE_FLOWS.md:237",
+      "reason": "Off-by-one: line 236 is '- Uses Google Cloud Vision API for text detection'; the GCP project ID string 'vision-test-app-363706' appears on line 237. Corrected to match actual line."
+    }
+  ],
+  "issuesFlagged": [
+    {
+      "severity": "warning",
+      "check": "evidenceResolution",
+      "detail": "knownIssues[editable-install-absolute-paths].description says 'two editable local installs' and names bkurly-scraper and oliveyoung-scraper. Actual requirements.txt contains THREE -e entries: line 13 (-e /Users/llnormll/PythonPackages/bkurly-scraper), line 60 (-e /Users/llnormll/PythonPackages/oliveyoung-scraper), line 93 (-e /Users/llnormll/PythonPackages/search-trend-analyzer). The third entry is omitted from the description and the evidence citation does not include line numbers. Operator should decide whether to update the description to name all three installs.",
+      "location": "status.knownIssues[editable-install-absolute-paths].description"
+    },
+    {
+      "severity": "note",
+      "check": "evidenceResolution",
+      "detail": "mechanisms[step7-feature-engineering].evidence includes 'pipelines/feature_engineering_pipeline.py:190-197'. The popularity_index assignment spans lines 196-202 (multi-line expression closes at 202). The cited range ends at 197, cutting off the closing parenthesis. The claim is still accurately supported because all five weighted component lines (190-194) and the assignment opening (196) are within range. No factual error — evidence range is tight but not wrong. Operator may optionally extend to :190-202 for completeness.",
+      "location": "mechanisms[step7-feature-engineering].evidence"
+    },
+    {
+      "severity": "note",
+      "check": "schemaConformance",
+      "detail": "mechanisms[step1-parallel-dynamodb-scan].claim states 'parallel 20-segment DynamoDB scan'. The step1 code at run_steps.py:87-180 calls self.db_connector.read_table_from_nosql() without any visible segment count in the orchestrator layer. The 20-segment parallelism may live inside DBConnector.read_table_from_nosql() rather than in run_steps.py directly. The claim is consistent with the research brief but cannot be fully confirmed from the cited lines alone. Not blocking — research JSON should be consulted if this is challenged.",
+      "location": "mechanisms[step1-parallel-dynamodb-scan].claim"
+    }
+  ],
+  "recommendations": [
+    "Operator should update knownIssues[editable-install-absolute-paths].description to name all three -e installs (bkurly-scraper, oliveyoung-scraper, search-trend-analyzer) and add line numbers to the evidence citation.",
+    "Optionally extend mechanisms[step7-feature-engineering] evidence range from :190-197 to :190-202 to fully capture the popularity_index assignment.",
+    "If the 20-segment DynamoDB scan claim is ever challenged, verify it by inspecting DBConnector.read_table_from_nosql() directly."
+  ]
+}

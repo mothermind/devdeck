@@ -2,8 +2,9 @@
 interface Props {
   title?: string;
   agentDocsSlug?: string | string[];
+  pipelineManifest?: string;
 }
-const { title = 'DevDeck', agentDocsSlug } = Astro.props;
+const { title = 'DevDeck', agentDocsSlug, pipelineManifest } = Astro.props;
 const agentSlugs = agentDocsSlug
   ? (Array.isArray(agentDocsSlug) ? agentDocsSlug : [agentDocsSlug])
   : [];
@@ -30,6 +31,14 @@ const agentSlugs = agentDocsSlug
         title="Agent-readable spec (JSON)"
       />
     ))}
+    {pipelineManifest && (
+      <link
+        rel="alternate"
+        type="application/json"
+        href={pipelineManifest}
+        title="Pipeline composition manifest (JSON)"
+      />
+    )}
   </head>
   <body>
     <slot />

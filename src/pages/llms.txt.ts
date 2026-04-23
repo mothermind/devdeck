@@ -38,6 +38,10 @@ export const GET: APIRoute = async () => {
 - [Corpus index](/api/docs/index.json): list of every documented subsystem
 ${agentDocsLines}
 
+## Pipeline manifest (composition)
+
+- [KBWW Data Pipeline](/api/pipeline.json): 13-stage composition of 7 projects producing the product_service table. Stage topology, data-flow edges, and pointers to each project's agent-doc.
+
 ## Human pages (narrative)
 
 - [Pipeline overview](/project1/pipeline)

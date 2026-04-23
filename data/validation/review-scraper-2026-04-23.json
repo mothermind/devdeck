@@ -1,0 +1,79 @@
+{
+  "slug": "review-scraper",
+  "mdxPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/src/content/agent-docs/review-scraper.mdx",
+  "validatedAt": "2026-04-23T00:00:00+09:00",
+  "passed": true,
+  "checks": {
+    "schemaConformance": {
+      "pass": true,
+      "issues": []
+    },
+    "evidenceResolution": {
+      "pass": true,
+      "issues": [
+        {
+          "id": "s3-resume-check-wrong-lines",
+          "field": "mechanisms[s3-resume-check].evidence",
+          "cited": "main.py:924-927",
+          "actual": "main.py:864-884",
+          "resolution": "AUTO-FIXED — lines 924-927 are the product-load block (TableVersionManager + read_table_from_rds). The actual S3 resume check is update_data_s3() defined at lines 864-884 (calls get_processed_items_from_s3, filters item_ids). Evidence corrected to main.py:864-884."
+        },
+        {
+          "id": "empty-readme-proxy-evidence",
+          "field": "status.knownIssues[empty-readme].evidence",
+          "cited": "main.py:1",
+          "actual": "README.md:1",
+          "resolution": "AUTO-FIXED — README.md exists on disk but is empty (confirmed: 0 bytes output). main.py:1 was used as a proxy. Corrected to README.md:1 which directly evidences the empty file."
+        }
+      ]
+    },
+    "commandVerification": {
+      "pass": true,
+      "verified": 5,
+      "flagged": 0,
+      "issues": [],
+      "notes": "python main.py --help returned exit 0 with full argparse usage listing all flags: --dry-run, --limit, --headless, --no-headless, --run-id, --cutoff. All 5 command invocations (run, dry-run, dry-run-limit, resume, debug-browser) use flags confirmed present. main.py passes ast.parse syntax check."
+    },
+    "crossReferenceIntegrity": {
+      "pass": true,
+      "issues": [],
+      "checked": [
+        { "slug": "oliveyoung-scraper", "path": "src/content/agent-docs/oliveyoung-scraper.mdx", "exists": true },
+        { "slug": "bkurly-scraper", "path": "src/content/agent-docs/bkurly-scraper.mdx", "exists": true },
+        { "slug": "product-db-pipeline", "path": "src/content/agent-docs/product-db-pipeline.mdx", "exists": true },
+        { "slug": "sentiment-analysis", "path": "src/content/agent-docs/sentiment-analysis.mdx", "exists": true }
+      ]
+    },
+    "freshness": {
+      "pass": true,
+      "ageDays": 0
+    }
+  },
+  "inPlaceFixesApplied": [
+    {
+      "field": "mechanisms[s3-resume-check].evidence",
+      "before": "main.py:924-927",
+      "after": "main.py:864-884",
+      "reason": "Lines 924-927 resolve to the product-load block (TableVersionManager.get_active_table + read_table_from_rds). The s3-resume-check claim describes get_processed_items_from_s3 filtering already-present item_ids out of the work queue — this logic lives in update_data_s3() at lines 864-884 (which calls get_processed_items_from_s3 at line 168 and filters at line 876-879). Corrected to the update_data_s3 function boundary."
+    },
+    {
+      "field": "status.knownIssues[empty-readme].evidence",
+      "before": "main.py:1",
+      "after": "README.md:1",
+      "reason": "README.md exists on disk at the source repo root and is confirmed empty (0 bytes). main.py:1 was a placeholder proxy. README.md:1 is the direct, accurate evidence pointer for the empty README issue."
+    }
+  ],
+  "issuesFlagged": [],
+  "specialAttentionResults": {
+    "a_sourceRepo_path": "PASS — sourceRepo is ~/PythonDev/review-scraper-async (single-p). No fix required.",
+    "b_batch_size_200": "PASS — main.py:207 reads: BATCH_SIZE = 200  # Reduced from 500 to save progress more frequently. Matches documented value exactly.",
+    "c_s3_resume_check_evidence": "FIXED — see inPlaceFixesApplied. Evidence was pointing at lines 924-927 (product-load block). Corrected to lines 864-884 (update_data_s3 function).",
+    "d_dynamodb_handler_path": "PASS — DynamoDBHandler class is defined inline in main.py at lines 47-71. The path: main.py in the dependency entry is correct. Note: database/dynamodb_handler.py exists as a separate file, but the class actually used in the pipeline is the one in main.py.",
+    "e_empty_readme": "FIXED — see inPlaceFixesApplied. README.md exists and is empty. Evidence corrected from main.py:1 to README.md:1."
+  },
+  "recommendations": [
+    "The database/ directory contains a separate dynamodb_handler.py — confirm whether the inline DynamoDBHandler in main.py is intentional duplication or a migration artifact. If database/dynamodb_handler.py is the canonical version, update the dependency path and remove the inline class.",
+    "s3-resume-check mechanism evidence now points at update_data_s3 (lines 864-884) which calls get_processed_items_from_s3 (S3Handler method, lines 168-193). Consider expanding the evidence string to reference both ranges: 'main.py:168-193 (get_processed_items_from_s3), main.py:864-884 (update_data_s3 filter logic)' for full traceability.",
+    "All 4 related slugs resolve. product-db-pipeline.mdx is present as expected."
+  ]
+}

@@ -1,0 +1,199 @@
+---
+slug: review-scraper
+kind: pipeline
+displayName: Review Scraper
+tagline: Async Playwright pipeline that reads Olive Young product URLs from a versioned PostgreSQL table, paginates review sections via Shadow DOM or legacy BS4, and writes Snappy-compressed Parquet batches to S3 with a DynamoDB-backed incremental cutoff
+
+documentedBy: MotherMind
+documentedAt: 2026-04-23
+lastVerified: 2026-04-23
+sourceRepo: ~/PythonDev/review-scraper-async
+sourcePath: main.py
+
+tags:
+  - python
+  - scraping
+  - pipeline
+  - playwright
+  - postgresql
+  - dynamodb
+  - s3
+  - parquet
+  - asyncio
+  - k-beauty
+
+techStack:
+  primary:
+    - Python 3.11+
+    - asyncio
+  infra:
+    - "AWS RDS PostgreSQL (source: product_raw_{version} table via TableVersionManager)"
+    - "AWS DynamoDB (per-product latest-review-date cutoff, table configured via settings)"
+    - "AWS S3 (Parquet output, bucket: trendmix, prefix: data/reviews/raw/)"
+    - Playwright Chromium (headless by default, JS/Shadow DOM review extraction)
+  libs:
+    - "playwright>=1.57.0 — async browser automation for OY review pages and Shadow DOM traversal"
+    - "beautifulsoup4>=4.14.3 — fallback HTML parsing for legacy OY page structure"
+    - "pyarrow>=23.0.0 — Parquet serialization with Snappy compression"
+    - "boto3>=1.42.37 — S3 and DynamoDB client (sync, not aioboto3)"
+    - "pandas<3 — DataFrame assembly, date parsing"
+    - "sqlalchemy>=2.0.46 — PostgreSQL reads via DatabaseHandler"
+    - "psutil>=7.2.2 — CPU monitoring for adaptive throttling"
+    - "pydantic-settings>=2.8.0 — Settings model (.env loading)"
+    - "rich>=14.3.1 — console progress bars and banners"
+    - "numpy>=2.4.1 — fill NaN for missing ratings"
+
+dependencies:
+  - name: DatabaseHandler
+    path: database/connector.py
+    kind: module
+    role: Provides read_table_from_rds (SQLAlchemy-backed RDS reads) used to load the active product_raw_{version} table at startup.
+  - name: TableVersionManager
+    path: utils/tbl_version_manager.py
+    kind: module
+    role: Queries the table_versions registry table in RDS at runtime to resolve the currently active product_raw version name.
+  - name: DynamoDBHandler
+    path: main.py
+    kind: module
+    role: Encapsulates DynamoDB get_latest_date lookups; used to build the per-product latest-review-date cutoff dict before scraping begins.
+  - name: "product_raw_{version}"
+    kind: postgres-table
+    role: Versioned RDS table of active Olive Young products (is_active=True rows); the active version name is resolved at runtime via TableVersionManager.
+  - name: table_versions
+    kind: postgres-table
+    role: Registry table in RDS mapping table types to their currently active version name; queried by TableVersionManager.get_active_table('product_raw').
+  - name: trendmix
+    kind: service
+    role: "S3 bucket receiving Parquet output under keys: data/reviews/raw/{YYMMDD}/scraper_results_{N}_{YYMMDD}.parquet, plus per-run _manifest.json at the same prefix."
+  - name: Settings
+    path: config/settings.py
+    kind: config
+    role: "Pydantic-settings model loading six env vars: DATABASE_URL, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, S3_BUCKET_NAME, DYNAMODB_TABLE_NAME."
+
+commands:
+  - id: run
+    invocation: python main.py
+    purpose: Full production run — reads product list from RDS, scrapes OY reviews, uploads Parquet batches and manifest to S3.
+    verified: true
+  - id: dry-run
+    invocation: python main.py --dry-run
+    purpose: Test mode — skips S3 upload, saves Parquet and JSON and manifest locally under dry_run_output/{date_str}/.
+    verified: true
+  - id: dry-run-limit
+    invocation: python main.py --dry-run --limit 10
+    purpose: Minimal smoke test — processes only the first 10 products locally.
+    verified: true
+    args:
+      - name: --limit
+        required: false
+        description: Cap the number of products processed in this run.
+  - id: resume
+    invocation: "python main.py --run-id 260201 --cutoff 260101"
+    purpose: Resume a previously started run (YYMMDD run_id) with a manual cutoff date for items lacking a DynamoDB entry.
+    verified: true
+    args:
+      - name: --run-id
+        required: false
+        description: YYMMDD identifier of the run to resume; sets the S3 prefix to write into.
+      - name: --cutoff
+        required: false
+        description: YYMMDD fallback cutoff date for products with no DynamoDB entry.
+  - id: debug-browser
+    invocation: python main.py --no-headless
+    purpose: Run with a visible browser window for debugging review page interactions.
+    verified: true
+
+mechanisms:
+  - id: dual-extraction-strategy
+    claim: Review extraction routes through Shadow DOM scroll-accumulation for the 2025 OY redesign or falls back to BeautifulSoup numbered-page pagination for the legacy layout, selected per product page at runtime.
+    invariant: All products are scraped regardless of which OY front-end version is live.
+    evidence: "main.py:307-383 (Shadow DOM extraction), main.py:577-640 (legacy BeautifulSoup path)"
+    rationale: OY's 2025 redesign moved reviews into a virtualized Shadow DOM custom element (oy-review-review-in-product); standard CSS selectors and pagination no longer work against it.
+  - id: shadow-dom-scroll-accumulation
+    claim: Shadow DOM extraction traverses the oy-review-review-in-product custom element recursively via JS evaluate and accumulates reviews through repeated scroll with a date+text[:50] dedup key to handle virtual-list recycling.
+    evidence: "main.py:307-383 (extract_reviews_from_shadow_dom JS evaluate), main.py:498-546 (scroll loop + accumulated_reviews dict)"
+  - id: dynamodb-cutoff-prefetch
+    claim: DynamoDB is queried in bulk before scraping begins to build a latest_dates dict keyed by item_id; each worker skips reviews on or before its product's cutoff date.
+    invariant: Already-ingested reviews are never re-written to S3 or re-processed by downstream consumers.
+    evidence: "main.py:47-71 (DynamoDBHandler.get_latest_date), main.py:937-954 (bulk prefetch loop)"
+    rationale: DynamoDB provides O(1) per-product lookups without a full table scan; prefetching in bulk before the asyncio task queue starts avoids per-product async latency.
+  - id: semaphore-bounded-concurrency
+    claim: All product scrape tasks are enqueued as asyncio tasks gated by asyncio.Semaphore(MAX_CONCURRENCY=2); each worker sleeps RATE_LIMIT (6 s) plus random jitter before opening a page.
+    invariant: At most 2 Playwright pages are open simultaneously.
+    evidence: "main.py:989 (semaphore = asyncio.Semaphore(MAX_CONCURRENCY)), main.py:1002-1009 (worker fn)"
+    rationale: Code comments cite T3 CPU credit preservation as the reason for the conservative concurrency cap (reduced from 5).
+  - id: adaptive-cpu-throttle
+    claim: adaptive_throttle() reads CPU load via psutil and extends the per-worker delay by 10 s above 80% CPU or 30 s above 95% CPU; an additional batch_cooldown of 30 s with CPU-recovery extension runs between Parquet flushes.
+    evidence: "main.py:218-238 (adaptive_throttle), main.py:242-263 (batch_cooldown)"
+  - id: batch-size-200
+    claim: BATCH_SIZE is currently 200 (not 500); the code comment explicitly notes the reduction from 500 to save progress more frequently and reduce in-memory accumulation between S3 flushes.
+    evidence: main.py:207
+  - id: incremental-manifest
+    claim: _manifest.json is written to S3 at the same prefix after every 200-product batch rather than once at the end; the manifest includes files[], summary totals, and date_range per file.
+    invariant: If the run crashes mid-way, the manifest reflects completed batches and can be used for resumption via --run-id.
+    evidence: "main.py:138-151 (save_manifest), main.py:1060-1066 (incremental write), main.py:1135-1155 (final manifest)"
+  - id: retry-exponential-backoff
+    claim: retry_async wraps page operations with exponential backoff (2^attempt seconds) up to MAX_RETRIES=5.
+    evidence: main.py:296-304
+  - id: stealth-init
+    claim: Playwright context overrides navigator.webdriver, injects window.chrome, sets locale to ko-KR and timezone to Asia/Seoul, and spoofs UA as macOS Chrome 120 via an init script.
+    evidence: main.py:278-292
+    rationale: Reduces detection probability on the Olive Young site.
+  - id: parquet-output-schema
+    claim: "Output Parquet schema per row: date, item_id, group_id, rating, review_text — Snappy-compressed via PyArrow; S3 key pattern is data/reviews/raw/{YYMMDD}/scraper_results_{N}_{YYMMDD}.parquet."
+    evidence: "main.py:800-806 (DataFrame columns), main.py:112 (compression='snappy'), main.py:105-107 (S3 key construction)"
+  - id: s3-resume-check
+    claim: In production mode (non-dry-run), get_processed_items_from_s3 scans today's S3 prefix and filters already-present item_ids out of the work queue before tasks are dispatched.
+    evidence: main.py:864-884
+
+status:
+  stage: dormant
+  lastCommitAt: 2026-02-04
+  knownIssues:
+    - id: hardcoded-s3-bucket
+      description: S3 bucket name 'trendmix' is hardcoded as a string literal in main() overriding the Settings.s3_bucket_name env var, making the bucket effectively unconfigurable without editing source.
+      severity: medium
+      evidence: main.py:915
+      scope: this-doc
+    - id: bk-review-path-dead-code
+      description: scrape_bk_data() (Beauty Kurly review extraction) is fully commented out; only the Olive Young source is active, but the function body and its call site remain in the file.
+      severity: low
+      evidence: "main.py:656-730 (commented-out bk block), main.py:743-747 (non-OY source returns Skipped)"
+      scope: this-doc
+    - id: no-env-sample
+      description: No .env.sample exists; the six required env var names are only discoverable from config/settings.py, increasing setup friction.
+      severity: low
+      evidence: config/settings.py:1-17
+      scope: this-doc
+    - id: empty-readme
+      description: README.md is empty — no project description or run instructions are present.
+      severity: low
+      evidence: README.md:1
+      scope: this-doc
+
+scope:
+  inDoc:
+    - Full pipeline flow from RDS product_raw_{version} read through asyncio task dispatch, dual-strategy review extraction (Shadow DOM scroll-accumulation + legacy BeautifulSoup pagination), Parquet serialization, incremental S3 batch flush, and _manifest.json contract.
+    - Data source — versioned product_raw table resolved at runtime by TableVersionManager.
+    - DynamoDB per-product cutoff prefetch and S3 resume check for incremental runs.
+    - Concurrency model — asyncio.Semaphore(2), 6 s rate limit with jitter, adaptive CPU throttling, batch cooldown.
+    - Output schema — Parquet columns (date, item_id, group_id, rating, review_text), batch size (200), S3 key layout, manifest structure.
+    - CLI flags — --dry-run, --limit, --run-id, --cutoff, --no-headless.
+    - Known issues — hardcoded S3 bucket name, dead BK review path, missing .env.sample, empty README.
+  outOfScope:
+    - Beauty Kurly review scraping — scrape_bk_data() is commented out and not functional.
+    - Scheduling or orchestration — no cron or workflow layer exists in this repo; run is manual or via external cron.
+    - AWS credential provisioning and IAM policy requirements.
+    - DynamoDB table DDL (partition key, sort key, TTL config) — table name is env-configured but schema not visible in source.
+    - apify-actor/ alternative actor directory — in .gitignore, treated as experimental dead branch per brief.
+
+related:
+  - slug: oliveyoung-scraper
+    relation: sibling K-Beauty product scraper sharing the same RDS instance and S3 trendmix bucket; produces the product_raw input this scraper reads
+  - slug: bkurly-scraper
+    relation: sibling K-Beauty scraper with near-twin pipeline shape (Playwright + asyncio + DynamoDB + S3); BK review path in this repo is commented out
+  - slug: product-db-pipeline
+    relation: upstream pipeline that populates the product_raw_{version} PostgreSQL table consumed as this scraper's input
+  - slug: sentiment-analysis
+    relation: downstream consumer of the Parquet review output written by this scraper to S3
+---

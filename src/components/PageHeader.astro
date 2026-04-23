@@ -3,8 +3,9 @@ interface Props {
   title: string;
   tags?: string[];
   agentDocsSlug?: string | string[];
+  pipelineManifest?: string;
 }
-const { title, tags = [], agentDocsSlug } = Astro.props;
+const { title, tags = [], agentDocsSlug, pipelineManifest } = Astro.props;
 const agentSlugs = agentDocsSlug
   ? (Array.isArray(agentDocsSlug) ? agentDocsSlug : [agentDocsSlug])
   : [];
@@ -23,13 +24,18 @@ else if (pathname.startsWith('/project2')) eyebrow = 'Playground';
       {tags.map(tag => <span class="tag">{tag}</span>)}
     </div>
   )}
-  {agentSlugs.length > 0 && (
+  {(agentSlugs.length > 0 || pipelineManifest) && (
     <div class="agent-link">
       {agentSlugs.map(slug => (
         <a href={`/api/docs/${slug}.json`} class="agent-badge">
           🤖 Agent-readable: /api/docs/{slug}.json
         </a>
       ))}
+      {pipelineManifest && (
+        <a href={pipelineManifest} class="agent-badge">
+          📊 Pipeline manifest: {pipelineManifest}
+        </a>
+      )}
     </div>
   )}
   <hr />

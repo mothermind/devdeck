@@ -1,0 +1,48 @@
+{
+  "project": {
+    "slug": "product-db-pipeline",
+    "path": "~/PythonDev/product-db-pipeline",
+    "displayName": "Product DB Pipeline",
+    "tagline": null
+  },
+  "scope": "project",
+  "kind": null,
+  "docStyle": {
+    "type": "pipeline-orchestrator",
+    "depth": "intermediate",
+    "emphasis": [
+      "the 7 ordered stages (data loading → preprocessing & grouping → OCR extraction → prepare analysis data → AI analysis → process analysis results → feature engineering)",
+      "entry points (CLI scripts, orchestrator, --target / version args)",
+      "intermediate storage (in-memory DataFrames, versioned PostgreSQL tables product_raw / product_analysis / product_service)",
+      "external dependencies (Google Cloud Vision API, OpenAI GPT-4o mini, DynamoDB ItemKeywords)",
+      "the KeywordExtractor module used in Step 5",
+      "how versioned tables are produced and activated (relation to TableVersionManager)",
+      "schema-evidence pairs the validator can resolve to file:line"
+    ],
+    "skip": [
+      ".env and secrets",
+      "venv/ and __pycache__/",
+      "experimental / commented-out blocks",
+      "tbl_version_manager.py internals — that file is already documented as the `table-manager` agent-docs entry. Reference it as a dependency only, do not re-document."
+    ]
+  },
+  "pages": [
+    {
+      "slug": "product-db-pipeline",
+      "purpose": "Project-scoped agent-docs entry for the 7-stage product DB pipeline orchestrator. Frontmatter-only, conformant to docs/AGENT_DOCS_SCHEMA.md v0.2."
+    }
+  ],
+  "voice": {
+    "framing": "B-agent-collaborative",
+    "narrator": "third-person-system-description",
+    "metaNotes": "not-in-body-only-in-frontmatter"
+  },
+  "references": {
+    "similarTo": ["search-trend-scraper", "sentiment-analysis"],
+    "contrastWith": [],
+    "note": "This is the central orchestrator of the K-Beauty data pipeline. Already-shipped sibling entries: oliveyoung-scraper + bkurly-scraper (upstream data sources via DynamoDB), review-scraper (consumes product_raw output), sentiment-analysis (consumes review output), search-trend-scraper (sibling consumer of versioned tables), ingredient-embeddings (consumes product_analysis output), table-manager (component carved out of THIS SAME repo — utils/tbl_version_manager.py — so list as `related` and depend on it, do not re-document its internals). Cross-link generously via related[] since this is the topology hub."
+  },
+  "provisional": false,
+  "createdAt": "2026-04-23T00:00:00Z",
+  "createdBy": "MotherMind"
+}

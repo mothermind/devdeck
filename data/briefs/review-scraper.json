@@ -1,0 +1,49 @@
+{
+  "project": {
+    "slug": "review-scraper",
+    "path": "~/PythonDev/review-scrapper-async",
+    "displayName": "Review Scraper",
+    "tagline": null
+  },
+  "scope": "project",
+  "kind": null,
+  "docStyle": {
+    "type": "pipeline-or-cli-tbd",
+    "depth": "intermediate",
+    "emphasis": [
+      "where the product list comes from (PostgreSQL product_raw_{version})",
+      "review pagination logic and per-product scraping flow",
+      "concurrency model (asyncio semaphore limits, batch sizes)",
+      "rate-limiting / anti-bot handling (sleeps, retries, UA, proxies if any)",
+      "output pipeline (Parquet via PyArrow, batches of 500, _manifest.json contract per run)",
+      "S3 destination layout (data/reviews/raw/{run_id}/...)",
+      "shared infra with sibling scrapers (RDS connection, S3 bucket)",
+      "schema-evidence pairs the validator can resolve to file:line"
+    ],
+    "skip": [
+      ".env and secrets",
+      "venv/ and __pycache__/",
+      "experimental / commented-out blocks",
+      "generated Parquet outputs / cached HTML"
+    ]
+  },
+  "pages": [
+    {
+      "slug": "review-scraper",
+      "purpose": "Project-scoped agent-docs entry for the review-scrapper-async repo (note: repo dir has typo `scrapper`; slug is clean `review-scraper`). Frontmatter-only, conformant to docs/AGENT_DOCS_SCHEMA.md v0.2."
+    }
+  ],
+  "voice": {
+    "framing": "B-agent-collaborative",
+    "narrator": "third-person-system-description",
+    "metaNotes": "not-in-body-only-in-frontmatter"
+  },
+  "references": {
+    "similarTo": ["oliveyoung-scraper", "bkurly-scraper", "search-trend-scraper"],
+    "contrastWith": [],
+    "note": "Third K-Beauty scraper, sibling to oliveyoung-scraper and bkurly-scraper. Calibrate shape against those (especially bkurly-scraper, a near-twin). Cross-link via related[]: oliveyoung-scraper + bkurly-scraper as upstream siblings (all three scrapers); product-db-pipeline as the project that produces the product_raw input list this scraper reads from; sentiment-analysis as the downstream consumer of the Parquet output. Note the slug intentionally normalizes the repo's typo `scrapper` to clean `scraper`."
+  },
+  "provisional": false,
+  "createdAt": "2026-04-23T00:00:00Z",
+  "createdBy": "MotherMind"
+}
