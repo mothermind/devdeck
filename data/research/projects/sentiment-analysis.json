@@ -1,0 +1,157 @@
+{
+  "projectSlug": "sentiment-analysis",
+  "projectPath": "/Users/llnormll/PythonDev/skincare-analysis",
+  "briefPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/data/briefs/sentiment-analysis.json",
+  "generatedAt": "2026-04-23T00:00:00Z",
+  "findings": {
+    "purpose": "GPU-accelerated zero-shot sentiment analysis pipeline for Korean skincare product reviews, using a multilingual NLI transformer to produce per-document overall sentiment, aspect-level sentiment (moisture, effectiveness, texture, absorption), and satisfaction scores. Runs on RunPod (remote GPU) against preprocessed parquet files stored in AWS S3.",
+    "techStack": {
+      "primary": ["Python 3.12+", "asyncio"],
+      "infra": ["AWS S3 (trendmix bucket)", "RunPod (GPU host)", "AWS RDS PostgreSQL (downstream)"],
+      "keyLibs": [
+        "transformers==4.51.3 (AutoTokenizer, AutoModelForSequenceClassification)",
+        "torch==2.7.0 (CUDA fp16, AMP, cuDNN benchmark)",
+        "boto3>=1.42.39 (S3 read/write)",
+        "pandas==2.2.3 (DataFrame I/O)",
+        "pyarrow>=23.0.0 (Parquet serialization)",
+        "konlpy==0.6.0 (KoNLPy/Okt — upstream preprocessing, not sentiment inference)"
+      ]
+    },
+    "architecture": "Two-script pipeline. `preprocess_from_s3.py` runs locally: loads raw parquet files from S3 for a given date, runs Korean morpheme extraction (KoNLPy/Okt) via multiprocessing, and writes `preprocessed_reviews.parquet` back to S3 at `data/reviews/raw/{date}/preprocessed_data_{date}/`. `main_gpu.py` runs on RunPod: loads that preprocessed parquet, instantiates `AsyncSkincareReviewAnalyzer` (in `utils/sentiment_analysis_gpu.py`), and processes all rows through an async batched NLI inference loop. The core class loads `MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7` from HuggingFace, converts it to fp16 on CUDA, and classifies each review text against Korean-language hypothesis strings using zero-shot NLI (entailment probability as score). Three hypothesis sets are evaluated per review: overall sentiment (positive / negative / neutral), satisfaction level (very / somewhat / unsatisfied), and four skincare aspects (moisture, effectiveness, texture, absorption) each with three polarity hypotheses. Results are written as a wide Parquet file to S3 at `data/reviews/raw/{date}/processed_results_{date}/sentiment_results.parquet` with a `_manifest.json` sidecar. A downstream script (`upload_to_db.py`) reads the merged results from S3 and writes them into a versioned PostgreSQL table.",
+    "keyCommands": [
+      {
+        "cmd": "python preprocess_from_s3.py --date 260130",
+        "purpose": "Download raw parquet for a date from S3, run KoNLPy keyword extraction, upload preprocessed_reviews.parquet back to S3.",
+        "verified": false
+      },
+      {
+        "cmd": "python preprocess_from_s3.py --date 260130 --processes 4",
+        "purpose": "Same as above with explicit multiprocessing worker count.",
+        "verified": false
+      },
+      {
+        "cmd": "python main_gpu.py --date 260130",
+        "purpose": "Load preprocessed parquet from S3, run mDeBERTa-v3 zero-shot inference on GPU, upload sentiment_results.parquet + manifest to S3.",
+        "verified": false
+      },
+      {
+        "cmd": "python main_gpu.py --date 260130 --resume",
+        "purpose": "Same as above with --resume flag (flag is parsed but checkpoint logic is not yet implemented).",
+        "verified": false
+      },
+      {
+        "cmd": "python main_gpu.py --date 260130 --chunk-size 50000 --batch-size 64 --inference-batch 512",
+        "purpose": "Run with explicit throughput tuning parameters (defaults shown).",
+        "verified": false
+      }
+    ],
+    "notableDecisions": [
+      {
+        "decision": "Zero-shot NLI via mDeBERTa-v3 instead of a fine-tuned sentiment head",
+        "rationale": "Enables classification against arbitrary Korean hypothesis strings without labeled training data; the multilingual model handles Korean natively. Entailment probability is used directly as the score for each label.",
+        "evidence": "utils/sentiment_analysis_gpu.py:22-68"
+      },
+      {
+        "decision": "fp16 (half-precision) inference on GPU via model.half()",
+        "rationale": "Reduces GPU memory footprint and increases throughput on Ampere hardware; combined with TF32 matmul and cuDNN benchmark flags for maximum CUDA utilization.",
+        "evidence": "utils/sentiment_analysis_gpu.py:53-55"
+      },
+      {
+        "decision": "Entailment index resolved dynamically from model config id2label",
+        "rationale": "Avoids hardcoding the NLI label order; model introspection ensures the correct probability column is extracted regardless of label ordering. A prior hardcoded version (`probs[:, 2]`) was replaced by this approach.",
+        "evidence": "utils/sentiment_analysis_gpu.py:48-49"
+      },
+      {
+        "decision": "Async batched inference with asyncio.Semaphore concurrency cap",
+        "rationale": "Allows large datasets to be queued as concurrent batch tasks while bounding maximum in-flight GPU work via semaphore (default 200); outer chunking (50k rows) keeps memory bounded.",
+        "evidence": "utils/sentiment_analysis_gpu.py:59-61, utils/sentiment_analysis_gpu.py:110-142"
+      },
+      {
+        "decision": "Keyword columns from preprocessing are forwarded into sentiment output unchanged",
+        "rationale": "Downstream PostgreSQL table expects a wide schema combining both keyword and sentiment signals; the sentiment script preserves upstream keyword columns by copying them into results_df.",
+        "evidence": "utils/sentiment_analysis_gpu.py:283-287, main_gpu.py:187-191"
+      }
+    ],
+    "currentStatus": "dormant — last meaningful commit 2026-02-11 (mDeBERTa-v3-base model switch)",
+    "entryPoints": [
+      "main_gpu.py",
+      "preprocess_from_s3.py"
+    ],
+    "dataFlow": "1. Raw reviews arrive as Parquet files in S3 at `s3://trendmix/data/reviews/raw/{date}/`. 2. `preprocess_from_s3.py` downloads them, runs KoNLPy/Okt morpheme extraction (local multiprocessing), and uploads `preprocessed_reviews.parquet` back to S3 at `data/reviews/raw/{date}/preprocessed_data_{date}/`. 3. `main_gpu.py` runs on RunPod: loads that Parquet, chunks it (default 50k rows/chunk), feeds each chunk through `AsyncSkincareReviewAnalyzer.process_chunk()` which batches rows (64/batch) and sends them through `batch_inference()` (inference batch 512). Each review is evaluated against 3 sets of Korean hypothesis strings; the NLI entailment probability is the score. 4. Output is a wide Parquet written to S3 at `data/reviews/raw/{date}/processed_results_{date}/sentiment_results.parquet` plus a `_manifest.json`. 5. `upload_to_db.py` (downstream, out of scope) reads merged S3 data and writes into a versioned PostgreSQL table (`product_review_NNN`) with all sentiment and keyword columns as FLOATs/TEXTs."
+  },
+  "perPage": [
+    {
+      "pageSlug": "sentiment-analysis",
+      "contentPointers": [
+        {
+          "claim": "Model: MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7 loaded via HuggingFace transformers",
+          "evidence": "utils/sentiment_analysis_gpu.py:22-43"
+        },
+        {
+          "claim": "Three output dimensions per review: overall sentiment (positive/negative/neutral), satisfaction level (very/somewhat/unsatisfied), and four skincare aspects (moisture/effectiveness/texture/absorption) each with positive/negative/neutral scores",
+          "evidence": "utils/sentiment_analysis_gpu.py:64-97, utils/sentiment_analysis_gpu.py:226-250"
+        },
+        {
+          "claim": "Output column schema: SA_positive, SA_negative, SA_neutral, aspect_{aspect}_{polarity} (12 columns), satisfaction_very, satisfaction_somewhat, satisfaction_un — all FLOAT rounded to 3 decimal places",
+          "evidence": "utils/sentiment_analysis_gpu.py:233-249, upload_to_db.py:35-76"
+        },
+        {
+          "claim": "Input source: preprocessed Parquet from S3 at s3://trendmix/data/reviews/raw/{date}/preprocessed_data_{date}/preprocessed_reviews.parquet",
+          "evidence": "main_gpu.py:56-68"
+        },
+        {
+          "claim": "Output destination: Parquet written to S3 at s3://trendmix/data/reviews/raw/{date}/processed_results_{date}/sentiment_results.parquet plus _manifest.json sidecar",
+          "evidence": "main_gpu.py:71-108"
+        },
+        {
+          "claim": "Batch inference: inference_batch_size=512 (default), batch_size=64, chunk_size=50000; async concurrency capped at max_concurrent=200 via asyncio.Semaphore",
+          "evidence": "utils/sentiment_analysis_gpu.py:26-61, main_gpu.py:111-120"
+        },
+        {
+          "claim": "GPU optimizations: fp16 via model.half(), TF32 matmul, cuDNN benchmark, AMP autocast, CUDA cache flush between inference batches",
+          "evidence": "utils/sentiment_analysis_gpu.py:31-55, utils/sentiment_analysis_gpu.py:128-140"
+        },
+        {
+          "claim": "Preprocessing (upstream, separate script): KoNLPy/Okt morpheme extraction producing keywords_nouns, keywords_adjectives, keywords_verbs, keywords_adverbs, keywords_{category} columns appended to Parquet",
+          "evidence": "preprocess_from_s3.py:62-129"
+        },
+        {
+          "claim": "Entry point invocation: python main_gpu.py --date 260130",
+          "evidence": "main_gpu.py:7-8 (docstring), main_gpu.py:111-120 (argparse)"
+        },
+        {
+          "claim": "--resume flag is parsed but checkpoint logic is not implemented; the flag has no effect",
+          "evidence": "main_gpu.py:118 (argparse stores but is never consumed in main())"
+        }
+      ],
+      "suggestedSections": [
+        "Model identity — provider, model ID, language, NLI framing",
+        "Input source — S3 path convention, Parquet schema, review_text column",
+        "Preprocessing step — separate script, KoNLPy/Okt, keyword column passthrough",
+        "Inference flow — async batching, chunk/batch/inference-batch sizing, GPU setup",
+        "Output schema — 20 sentiment/satisfaction/aspect columns, FLOAT rounded to 3dp",
+        "Output destination — S3 path, Parquet + manifest JSON",
+        "CLI commands — main_gpu.py and preprocess_from_s3.py invocations",
+        "Known issues — --resume unimplemented, no GPU fallback for fp16 dtype mismatch on CPU"
+      ]
+    }
+  ],
+  "filesRead": [
+    "utils/sentiment_analysis_gpu.py",
+    "main_gpu.py",
+    "preprocess_from_s3.py",
+    "upload_to_db.py (lines 1-76)",
+    "pyproject.toml",
+    "utils/__init__.py"
+  ],
+  "gapsFromBrief": [
+    "No caching or rate-limit handling around model API calls: the model runs locally on GPU (no external API), so there is no API rate limiting or caching layer. The brief asked about this; the answer is it does not apply.",
+    "--resume flag: parsed as argparse argument (main_gpu.py:118) but never consumed in the main() function — no checkpoint/resume logic exists. Content-agent should flag this as a known issue rather than a capability.",
+    "S3 bucket name 'trendmix' is hardcoded as default but overridable via --bucket; no .env.sample or equivalent config file documents required env vars (AWS credentials assumed from environment/instance role on RunPod)."
+  ],
+  "recommendations": [
+    "The --resume flag should either be implemented or removed; its presence implies a capability that does not exist and could mislead operators running large batches.",
+    "An .env.sample documenting required AWS env vars (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION) would improve reproducibility — currently undocumented.",
+    "The ingredient-embeddings agent-doc exists at src/content/agent-docs/ingredient-embeddings.mdx and is a valid related entry — both are NLP subsystems in the same pipeline family and both use HuggingFace models."
+  ]
+}

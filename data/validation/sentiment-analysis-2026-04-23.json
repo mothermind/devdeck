@@ -1,0 +1,72 @@
+{
+  "slug": "sentiment-analysis",
+  "mdxPath": "/Users/llnormll/WorkSpace/showcase-ast/apparent-astronaut/src/content/agent-docs/sentiment-analysis.mdx",
+  "validatedAt": "2026-04-23T00:00:00Z",
+  "passed": true,
+  "checks": {
+    "schemaConformance": {
+      "pass": true,
+      "issues": []
+    },
+    "evidenceResolution": {
+      "pass": true,
+      "issues": [
+        {
+          "severity": "warning",
+          "field": "mechanisms[fp16-gpu-inference].evidence",
+          "detail": "Evidence cited as utils/sentiment_analysis_gpu.py:53-55 covers only model.half(). The mechanism claim also asserts TF32 matmul, cuDNN benchmark (lines 32-34), and AMP autocast (line 128) — none of which are within the cited range. The claim is accurate but the evidence is too narrow to fully support it.",
+          "suggestion": "Expand to dual-ref: \"utils/sentiment_analysis_gpu.py:30-34, utils/sentiment_analysis_gpu.py:53-55\" to cover cuDNN/TF32 + model.half(); optionally add utils/sentiment_analysis_gpu.py:128 for AMP autocast."
+        },
+        {
+          "severity": "note",
+          "field": "status.knownIssues[undocumented-aws-env-vars].evidence",
+          "detail": "Evidence cited as main_gpu.py:56-68 (body of load_preprocessed_data). boto3.client('s3') is actually instantiated at line 51 (S3SentimentPipeline.__init__). Lines 56-68 show S3 usage but not the credential-assumption site. Evidence is imprecise but not wrong — lines 56-68 do demonstrate the S3 dependency.",
+          "suggestion": "Consider main_gpu.py:51 as a tighter citation for the credential assumption, or keep 56-68 as a usage-site reference and accept the imprecision."
+        }
+      ]
+    },
+    "commandVerification": {
+      "pass": true,
+      "verified": 0,
+      "flagged": 0,
+      "issues": []
+    },
+    "crossReferenceIntegrity": {
+      "pass": true,
+      "issues": []
+    },
+    "freshness": {
+      "pass": true,
+      "ageDays": 0
+    }
+  },
+  "inPlaceFixesApplied": [],
+  "issuesFlagged": [
+    {
+      "severity": "warning",
+      "check": "evidenceResolution",
+      "detail": "mechanisms[fp16-gpu-inference].evidence (utils/sentiment_analysis_gpu.py:53-55) is too narrow: covers only model.half(). The claim additionally asserts TF32 matmul and cuDNN benchmark (lines 32-34) and AMP autocast (line 128), neither of which fall in the cited range. All four optimizations are present in the file; the evidence just does not point at three of them.",
+      "location": "mechanisms[fp16-gpu-inference].evidence"
+    },
+    {
+      "severity": "note",
+      "check": "evidenceResolution",
+      "detail": "status.knownIssues[undocumented-aws-env-vars].evidence cites main_gpu.py:56-68 (load_preprocessed_data body). The boto3.client('s3') instantiation that implicitly assumes env-var credentials is at line 51. Minor imprecision — cited range demonstrates S3 usage but is not the credential-assumption site.",
+      "location": "status.knownIssues[undocumented-aws-env-vars].evidence"
+    }
+  ],
+  "dualRefDecision": {
+    "pattern": "comma-separated dual evidence references in a single string",
+    "examples": [
+      "mechanisms[async-semaphore-batching].evidence",
+      "mechanisms[keyword-column-passthrough].evidence"
+    ],
+    "verdict": "ACCEPTED",
+    "rationale": "Both dual-ref entries cite genuinely disjoint code locations that together justify a single logical design decision. The pattern has precedent in ingredient-embeddings.mdx. Both reference pairs fully resolve: async-semaphore-batching points at lines 59-61 (Semaphore construction) and 110-142 (batch_inference method); keyword-column-passthrough points at lines 283-287 (process_chunk copy block) and main_gpu.py:187-191 (main loop copy block). Schema spec says 'file:line or file:lineStart-lineEnd' — ambiguous on multi-site; accepted here as a meaningful extension. Operator should decide whether to codify this in the schema or require mechanism splitting."
+  },
+  "recommendations": [
+    "Expand mechanisms[fp16-gpu-inference].evidence to cover lines 30-34 (TF32/cuDNN setup) in addition to 53-55 (model.half()). Optionally add line 128 for AMP autocast. All three sites are required to fully support the stated claim.",
+    "Consider tightening knownIssues[undocumented-aws-env-vars].evidence from main_gpu.py:56-68 to main_gpu.py:51 (boto3.client instantiation) for precision — or add it as a second reference.",
+    "The dual-ref evidence pattern (comma-separated) should be formally accepted or rejected in AGENT_DOCS_SCHEMA.md v0.3 to avoid per-file ambiguity decisions."
+  ]
+}

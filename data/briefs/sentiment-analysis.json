@@ -1,0 +1,54 @@
+{
+  "project": {
+    "slug": "sentiment-analysis",
+    "path": "~/PythonDev/skincare-analysis",
+    "displayName": "Sentiment Analysis",
+    "tagline": null
+  },
+  "scope": "component",
+  "componentScope": {
+    "label": "sentiment analysis",
+    "guidance": "Document the sentiment-analysis subsystem inside the skincare-analysis project ONLY — model, preprocessing, scoring, output schema, and any pipeline/script that produces sentiment labels or scores. Treat the rest of the project (unrelated NLP tasks, scraping, ETL, dashboards) as out-of-scope unless directly feeding sentiment input or consuming its output. Locate the component by searching for: 'sentiment', 'polarity', 'classifier', 'classification', 'positive', 'negative', 'neutral', 'label', 'score', 'transformers', 'sklearn', 'tensorflow', 'torch', 'huggingface', 'AutoModel', 'pipeline', 'opinion', 'review', 'aspect'. Likely homes: a sentiment.py / sentiment_*.py file, a notebook, a service module, or a scripts/ entry. Confirm location and trace the full flow (input source → preprocessing → model inference → output destination) before scoping the page."
+  },
+  "kind": null,
+  "docStyle": {
+    "type": "service-or-pipeline-tbd",
+    "depth": "intermediate",
+    "emphasis": [
+      "the sentiment model (provider, model id, language, output labels/scores)",
+      "input source (where review text comes from — DB table, S3, file, scraped feed)",
+      "preprocessing steps (cleaning, tokenization, language detection, segmentation)",
+      "inference flow (batch vs streaming, batch size, GPU/CPU)",
+      "output schema (labels, scores, confidence, per-aspect vs per-document)",
+      "where output is stored (DB table/column, file, S3, downstream service)",
+      "any caching, batching, or rate-limit handling around model API calls",
+      "schema-evidence pairs the validator can resolve to file:line"
+    ],
+    "skip": [
+      ".env and secrets",
+      "venv/ and __pycache__/",
+      "unrelated NLP or analytics tasks in the same repo",
+      "scraping/ETL code unless it directly produces sentiment input",
+      "dashboards or reporting code that only consumes sentiment output (mention as downstream, don't document)"
+    ]
+  },
+  "pages": [
+    {
+      "slug": "sentiment-analysis",
+      "purpose": "Single agent-docs entry documenting the sentiment-analysis subsystem inside skincare-analysis. Frontmatter-only, conformant to docs/AGENT_DOCS_SCHEMA.md v0.2."
+    }
+  ],
+  "voice": {
+    "framing": "B-agent-collaborative",
+    "narrator": "third-person-system-description",
+    "metaNotes": "not-in-body-only-in-frontmatter"
+  },
+  "references": {
+    "similarTo": ["ingredient-embeddings", "search-trend-scraper", "table-manager"],
+    "contrastWith": [],
+    "note": "agent-docs schema v0.2 produces frontmatter-only data files in src/content/agent-docs/. No body, no layout, no title. Calibrate against ingredient-embeddings.mdx (most recent component-scoped pilot, also an NLP service). A bespoke page already exists at src/pages/project1/sentiment.astro — Phase 4 will wire agentDocsSlug='sentiment-analysis' into it."
+  },
+  "provisional": false,
+  "createdAt": "2026-04-23T00:00:00Z",
+  "createdBy": "MotherMind"
+}
