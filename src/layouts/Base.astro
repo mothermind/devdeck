@@ -23,6 +23,12 @@ const agentSlugs = agentDocsSlug
       rel="stylesheet"
     />
     <title>{title === 'DevDeck' ? 'DevDeck' : `${title} · DevDeck`}</title>
+    {/* Corpus-level agent-discovery links — emitted on every page */}
+    <link rel="alternate" type="application/json" href="/api/docs/index.json" title="Agent-readable corpus index" />
+    <link rel="alternate" type="application/json" href="/api/pipeline.json" title="Agent-readable pipeline manifest" />
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="LLM discovery index" />
+    <link rel="alternate" type="application/json" href="/api/dashboard.json" title="Agent-readable dashboard snapshot" />
+    {/* Per-page agent docs link — only when a slug is passed */}
     {agentSlugs.map(slug => (
       <link
         rel="alternate"
@@ -411,4 +417,5 @@ const agentSlugs = agentDocsSlug
 
   .seg-panel { display: none; }
   .seg-panel.active { display: block; }
+
 </style>

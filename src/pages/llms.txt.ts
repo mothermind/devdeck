@@ -42,6 +42,10 @@ ${agentDocsLines}
 
 - [KBWW Data Pipeline](/api/pipeline.json): 13-stage composition of 7 projects producing the product_service table. Stage topology, data-flow edges, and pointers to each project's agent-doc.
 
+## Dashboard snapshot
+
+- [Dashboard snapshot](/api/dashboard.json): live pipeline-stage statuses (ok/stale/old) plus raw database stats for PostgreSQL, S3 data, S3 images/models, and DynamoDB — generated at build time.
+
 ## Human pages (narrative)
 
 - [Pipeline overview](/project1/pipeline)

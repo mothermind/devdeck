@@ -2,16 +2,31 @@
 ---
 
 <header class="site-header">
+  <!-- Hamburger: visible only on mobile/tablet (≤ 900px) -->
+  <button
+    class="hamburger"
+    id="sidebar-hamburger"
+    aria-label="Open navigation"
+    aria-expanded="false"
+    aria-controls="sidebar"
+  >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="3" y1="6"  x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+
   <!-- Left: identity -->
   <div class="header-identity">
-    <img src="/profile.jpeg" alt="Ayden Choi" class="avatar" />
+    <img src="/mother.jpg" alt="MotherMind" class="avatar" />
     <div class="identity-text">
-      <span class="profile-name">Ayden Choi</span>
-      <span class="profile-role">Data Engineer</span>
+      <span class="profile-name">MotherMind</span>
+      <span class="profile-role">Operated by Ayden Choi</span>
     </div>
   </div>
 
-  <!-- Center: search -->
+  <!-- Center: search (desktop) -->
   <div class="search-wrap">
     <div class="search-bar" id="search-trigger" role="button" tabindex="0" aria-label="Search pages">
       <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -35,27 +50,58 @@
     </div>
   </div>
 
+  <!-- Mobile search icon (≤900px) -->
+  <button
+    class="mobile-search-btn"
+    id="mobile-search-btn"
+    aria-label="Search pages"
+    aria-expanded="false"
+  >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+  </button>
+
+  <!-- Mobile search overlay -->
+  <div class="mobile-search-overlay" id="mobile-search-overlay" hidden>
+    <input
+      id="mobile-search-input"
+      class="mobile-search-input"
+      type="text"
+      placeholder="Search pages..."
+      autocomplete="off"
+      spellcheck="false"
+      aria-label="Search pages"
+    />
+    <button class="mobile-search-close" id="mobile-search-close" aria-label="Close search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 6 6 18M6 6l12 12"/>
+      </svg>
+    </button>
+    <ul class="search-results mobile-search-results" id="mobile-search-results"></ul>
+  </div>
+
   <!-- Right: links -->
   <div class="header-links">
     <a href="https://github.com/cch0213" target="_blank" rel="noopener" class="header-link">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
       </svg>
-      GitHub
+      <span class="link-label">GitHub</span>
     </a>
     <span class="link-sep">·</span>
     <a href="https://www.linkedin.com/in/aydenccc/" target="_blank" rel="noopener" class="header-link">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
         <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
       </svg>
-      LinkedIn
+      <span class="link-label">LinkedIn</span>
     </a>
     <span class="link-sep">·</span>
     <a href="mailto:aydenchoi213@gmail.com" class="header-link">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
       </svg>
-      Email
+      <span class="link-label">Email</span>
     </a>
   </div>
 </header>
@@ -73,6 +119,7 @@
     { label: 'Git, But Make It Excel',   section: 'Cheatsheet',       href: '/cheatsheet/git-excel' },
   ];
 
+  // ── Desktop search ──
   const trigger  = document.getElementById('search-trigger')!;
   const dropdown = document.getElementById('search-dropdown')!;
   const input    = document.getElementById('search-input') as HTMLInputElement;
@@ -81,7 +128,7 @@
   function open() {
     dropdown.hidden = false;
     input.focus();
-    render('');
+    renderResults('', results);
   }
 
   function close() {
@@ -89,7 +136,7 @@
     input.value = '';
   }
 
-  function render(q: string) {
+  function renderResults(q: string, listEl: HTMLElement) {
     const query = q.toLowerCase().trim();
     const matches = query
       ? PAGES.filter(p =>
@@ -98,7 +145,7 @@
         )
       : PAGES;
 
-    results.innerHTML = '';
+    listEl.innerHTML = '';
     matches.forEach(p => {
       const li = document.createElement('li');
       li.innerHTML = `
@@ -106,13 +153,13 @@
           <span class="result-label">${p.label}</span>
           <span class="result-section">${p.section}</span>
         </a>`;
-      results.appendChild(li);
+      listEl.appendChild(li);
     });
   }
 
   trigger.addEventListener('click', open);
   trigger.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(); });
-  input.addEventListener('input', () => render(input.value));
+  input.addEventListener('input', () => renderResults(input.value, results));
   input.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 
   // ⌘K / Ctrl+K
@@ -132,6 +179,41 @@
 
   // Close on result click
   results.addEventListener('click', close);
+
+  // ── Mobile search ──
+  const mobileBtn     = document.getElementById('mobile-search-btn')!;
+  const mobileOverlay = document.getElementById('mobile-search-overlay')!;
+  const mobileInput   = document.getElementById('mobile-search-input') as HTMLInputElement;
+  const mobileResults = document.getElementById('mobile-search-results')!;
+  const mobileClose   = document.getElementById('mobile-search-close')!;
+
+  function openMobile() {
+    mobileOverlay.hidden = false;
+    mobileBtn.setAttribute('aria-expanded', 'true');
+    mobileInput.focus();
+    renderResults('', mobileResults);
+  }
+
+  function closeMobile() {
+    mobileOverlay.hidden = true;
+    mobileBtn.setAttribute('aria-expanded', 'false');
+    mobileInput.value = '';
+  }
+
+  mobileBtn.addEventListener('click', openMobile);
+  mobileClose.addEventListener('click', closeMobile);
+  mobileInput.addEventListener('input', () => renderResults(mobileInput.value, mobileResults));
+  mobileInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMobile(); });
+  mobileResults.addEventListener('click', closeMobile);
+
+  // Close mobile on outside click
+  document.addEventListener('click', (e) => {
+    if (!mobileOverlay.hidden &&
+        !mobileBtn.contains(e.target as Node) &&
+        !mobileOverlay.contains(e.target as Node)) {
+      closeMobile();
+    }
+  });
 </script>
 
 <style>
@@ -142,14 +224,41 @@
     width: 100%;
     height: var(--header-h);
     display: grid;
-    grid-template-columns: auto auto 1fr;
+    /* hamburger(hidden) | identity | filler | search | filler | links */
+    grid-template-columns: auto auto 1fr auto 1fr auto;
     align-items: center;
     padding: 0 1.5rem;
+    /* Align nav-links right edge with the dashboard content right edge at wide viewports */
+    padding-inline-end: max(1.5rem, calc(100vw - var(--sidebar-w) - var(--content-max) - 1.5rem));
+    gap: 1rem;
     background: rgba(250, 246, 240, 0.92);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
-    gap: 1.5rem;
+    /* Contain the mobile search overlay */
+    overflow: visible;
+  }
+
+  /* ── Hamburger ── */
+  .hamburger {
+    display: none; /* hidden on desktop */
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s, border-color 0.15s;
+    padding: 0;
+  }
+
+  .hamburger:hover {
+    color: var(--text);
+    border-color: var(--border-hi);
   }
 
   /* ── Left: identity ── */
@@ -191,9 +300,8 @@
   /* ── Center: search ── */
   .search-wrap {
     position: relative;
-    width: 260px;
-    flex-shrink: 0;
-    margin-left: 8.2rem;
+    width: clamp(160px, 20vw, 260px);
+    justify-self: center;
   }
 
   .search-bar {
@@ -299,12 +407,92 @@
     white-space: nowrap;
   }
 
+  /* ── Mobile search button (icon-only, ≤900px) ── */
+  .mobile-search-btn {
+    display: none; /* hidden on desktop */
+    grid-column: 3;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s, border-color 0.15s;
+    padding: 0;
+  }
+
+  .mobile-search-btn:hover {
+    color: var(--text);
+    border-color: var(--border-hi);
+  }
+
+  /* ── Mobile search overlay ── */
+  /* Hidden at desktop regardless of JS state — only activates inside ≤900px media query */
+  .mobile-search-overlay {
+    display: none;
+  }
+
+  .mobile-search-input {
+    flex: 1;
+    height: 36px;
+    padding: 0 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border-hi);
+    border-radius: 10px;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: var(--text);
+    outline: none;
+  }
+
+  .mobile-search-input::placeholder { color: var(--text-dim); }
+  .mobile-search-input:focus { border-color: var(--accent); }
+
+  .mobile-search-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .mobile-search-close:hover {
+    color: var(--text);
+    border-color: var(--border-hi);
+  }
+
+  .mobile-search-results {
+    position: absolute;
+    top: var(--header-h);
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border-hi);
+    list-style: none;
+    padding: 0.3rem;
+    margin: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+
   /* ── Right: links ── */
   .header-links {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    margin-left: auto;
     gap: 0.75rem;
   }
 
@@ -328,12 +516,74 @@
   }
 
   /* ── Responsive ── */
-  @media (max-width: 900px) {
-    .site-header {
-      grid-template-columns: auto 1fr auto;
+
+  /* Mid-width: shrink search, hide role subtitle */
+  @media (max-width: 1100px) {
+    .search-wrap {
+      width: clamp(120px, 14vw, 200px);
     }
-    .search-wrap { width: auto; }
     .profile-role { display: none; }
+  }
+
+  /* Tighter mid-width: slightly reduce name font to prevent crowding */
+  @media (max-width: 960px) {
+    .profile-name {
+      font-size: 0.8rem;
+    }
+    .header-links {
+      gap: 0.5rem;
+    }
+  }
+
+  /* Tablet / mobile: show hamburger + mobile search icon, hide desktop search */
+  @media (max-width: 900px) {
+    .hamburger { display: flex; }
+    .mobile-search-btn { display: flex; }
+
+    .site-header {
+      /* hamburger | identity | mobile-search-btn | links */
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      gap: 0.75rem;
+    }
+
+    .search-wrap { display: none; }
     .result-section { display: none; }
+
+    /* Links: hide text labels, show only icons */
+    .link-label,
+    .link-sep { display: none; }
+
+    .header-links {
+      gap: 0.5rem;
+    }
+
+    /* Overlay: only rendered inside this breakpoint.
+       Starts after the hamburger column (~50px) so hamburger stays accessible. */
+    .mobile-search-overlay:not([hidden]) {
+      position: absolute;
+      top: 0;
+      left: 50px; /* clear the hamburger button */
+      right: 0;
+      height: var(--header-h);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border-hi);
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      gap: 0.5rem;
+      z-index: 250;
+    }
+
+    /* Keep hamburger above the overlay */
+    .hamburger {
+      position: relative;
+      z-index: 260;
+    }
+  }
+
+  /* Very narrow: squeeze further */
+  @media (max-width: 420px) {
+    .site-header { padding: 0 1rem; }
+    .mobile-search-btn { width: 30px; height: 30px; }
   }
 </style>
